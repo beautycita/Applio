@@ -74,11 +74,8 @@ def stop_infer():
         pass
 
 
-def restart_applio():
-    if os.name != "nt":
-        os.system("clear")
-    else:
-        os.system("cls")
+def restart_app():
+    os.system("clear")
     python = sys.executable
     os.execl(python, python, *sys.argv)
 
@@ -91,9 +88,9 @@ i18n = I18nAuto()
 def restart_tab():
     with gr.Row():
         with gr.Column():
-            restart_button = gr.Button(i18n("Restart Applio"))
+            restart_button = gr.Button(i18n("Restart ReMiFaSol"))
             restart_button.click(
-                fn=restart_applio,
+                fn=restart_app,
                 inputs=[],
                 outputs=[],
             )

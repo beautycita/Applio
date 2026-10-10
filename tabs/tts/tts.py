@@ -114,7 +114,7 @@ def tts_tab():
     gr.Markdown(value=i18n("## TTS Settings"))
     gr.Markdown(
         i18n(
-            f"Applio is a Speech-to-Speech conversion software, utilizing EdgeTTS as middleware for running the Text-to-Speech (TTS) component. Read more about it [here!](https://docs.applio.org/applio/getting-started/tts)"
+            f"ReMiFaSol is a Speech-to-Speech conversion software, utilizing EdgeTTS as middleware for running the Text-to-Speech (TTS) component."
         )
     )
     tts_voice = gr.Dropdown(
@@ -382,17 +382,16 @@ def tts_tab():
                 None,
             )
 
-    gr.Markdown(value=i18n("## Conversion"))
 
     terms_checkbox = gr.Checkbox(
         label=i18n("I agree to the terms of use"),
         info=i18n(
-            "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/IAHispano/Applio/blob/main/TERMS_OF_USE.md) before proceeding with your inference."
+            "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/beautycita/ReMiFaSol/blob/main/TERMS_OF_USE.md) before proceeding with your inference."
         ),
-        value=False,
-        interactive=True,
+        value=True,
+        visible=False,  # private app: no terms gate
     )
-    convert_button = gr.Button(i18n("Convert"))
+    convert_button = gr.Button(i18n("Convert"), variant="primary")
 
     with gr.Row():
         vc_output1 = gr.Textbox(

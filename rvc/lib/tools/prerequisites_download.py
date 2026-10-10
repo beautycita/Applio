@@ -3,7 +3,9 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import requests
 
-url_base = "https://huggingface.co/IAHispano/Applio/resolve/main/Resources"
+from rvc.lib.tools.hf_auth import hf_headers
+
+url_base = "https://huggingface.co/bc-deb/ReMiFaSol/resolve/main/Resources"
 
 pretraineds_hifigan_list = [
     (
@@ -31,9 +33,6 @@ pretraineds_refinegan_list = [
 ]
 models_list = [("predictors/", ["rmvpe.pt", "fcpe.pt"])]
 embedders_list = [("embedders/contentvec/", ["pytorch_model.bin", "config.json"])]
-executables_list = [
-    ("", ["ffmpeg.exe", "ffprobe.exe"]),
-]
 
 folder_mapping_list = {
     "pretrained_v2/": "rvc/models/pretraineds/hifi-gan/",
@@ -55,7 +54,7 @@ def get_file_size_if_missing(file_list):
             destination_path = os.path.join(local_folder, file)
             if not os.path.exists(destination_path):
                 url = f"{url_base}/{remote_folder}{file}"
-                response = requests.head(url)
+                response = requests.head(url, headers=hf_headers(), allow_redirects=True)
                 total_size += int(response.headers.get("content-length", 0))
     return total_size
 
@@ -69,7 +68,13 @@ def download_file(url, destination_path, global_bar):
     dir_name = os.path.dirname(destination_path)
     if dir_name:
         os.makedirs(dir_name, exist_ok=True)
-    response = requests.get(url, stream=True)
+    response = requests.get(url, headers=hf_headers(), stream=True)
+    if response.status_code in (401, 403):
+        raise RuntimeError(
+            f"Could not download {url}: the model repo is private. "
+            "Run `hf auth login` with an account that can read it."
+        )
+    response.raise_for_status()
     block_size = 1024
     with open(destination_path, "wb") as file:
         for data in response.iter_content(block_size):
@@ -127,8 +132,6 @@ def calculate_total_size(
     if models:
         total_size += get_file_size_if_missing(models_list)
         total_size += get_file_size_if_missing(embedders_list)
-    if exe and os.name == "nt":
-        total_size += get_file_size_if_missing(executables_list)
     total_size += get_file_size_if_missing(pretraineds_hifigan)
     total_size += get_file_size_if_missing(pretraineds_refinegan_list)
     return total_size
@@ -155,11 +158,6 @@ def prequisites_download_pipeline(
             if models:
                 download_mapping_files(models_list, global_bar)
                 download_mapping_files(embedders_list, global_bar)
-            if exe:
-                if os.name == "nt":
-                    download_mapping_files(executables_list, global_bar)
-                else:
-                    print("No executables needed")
             if pretraineds_hifigan:
                 download_mapping_files(pretraineds_hifigan_list, global_bar)
                 download_mapping_files(pretraineds_refinegan_list, global_bar)

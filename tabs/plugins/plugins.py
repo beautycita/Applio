@@ -45,4 +45,8 @@ def plugins_tab():
         plugin_import = importlib.import_module(plugin_main)
 
         with gr.TabItem(plugin):
-            plugin_import.applio_plugin()
+            # plugins written for upstream expose applio_plugin()
+            entry = getattr(plugin_import, "remifasol_plugin", None) or getattr(
+                plugin_import, "applio_plugin"
+            )
+            entry()

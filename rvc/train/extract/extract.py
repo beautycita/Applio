@@ -14,7 +14,7 @@ now_dir = os.getcwd()
 sys.path.append(os.path.join(now_dir))
 
 # Zluda hijack
-import rvc.lib.zluda
+import rvc.lib.amd
 from rvc.configs.config import Config
 from rvc.lib.predictors.f0 import CREPE, FCPE, RMVPE, load_high_register_settings
 from rvc.lib.utils import load_audio, load_embedding

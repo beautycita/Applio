@@ -1,10 +1,9 @@
 {
   "theme": {
-    "file": "Applio.py",
-    "class": "Applio"
+    "file": "ReMiFaSol.py",
+    "class": "ReMiFaSol"
   },
   "plugins": [],
-  "discord_presence": true,
   "lang": {
     "override": false,
     "selected_lang": "en_US"

@@ -1,0 +1,119 @@
+footer {
+  display: none !important;
+}
+
+.gradio-container {
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+  /* clip instead of hidden, so the sticky tab bar can stick */
+  overflow: clip !important;
+}
+
+.rmfs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 8px 12px;
+}
+
+.rmfs-brand h1 {
+  margin: 0;
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  background: linear-gradient(90deg, #ff3ea5, #ffb627 55%, #2dd4bf);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rmfs-brand p {
+  margin: 6px 0 0;
+  color: #c3bbe6;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rmfs-notes {
+  display: block;
+  color: #2dd4bf;
+  font-size: 1.4rem;
+  letter-spacing: 0.4em;
+}
+
+.rmfs-header nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rmfs-badge {
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.12);
+  border: 1px solid #2dd4bf;
+  color: #99f6e4;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.rmfs-header nav a {
+  display: inline-block;
+  padding: 12px 22px;
+  border: 2px solid #ff3ea5;
+  border-radius: 999px;
+  color: #ff85c2;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.rmfs-header nav a:hover {
+  background: #ff3ea5;
+  color: #0b0918;
+}
+
+/* Bigger, chunkier tabs */
+.tab-wrapper button,
+button[role="tab"] {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  padding: 12px 18px !important;
+}
+
+/* keep the main tab bar in view on long pages */
+.gradio-container > .main .tabs > .tab-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(11, 9, 24, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+/* drop zones reuse the label text colour, which is dark ink in this theme */
+button.center.boundedheight .wrap {
+  color: #c3bbe6 !important;
+}
+
+button[role="tab"][aria-selected="true"] {
+  color: #ff85c2 !important;
+  border-color: #ff3ea5 !important;
+}
+
+
+@media (max-width: 640px) {
+  .rmfs-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* only the top-level tab bar sticks; nested tab bars scroll normally */
+.tabs .tabs > .tab-wrapper {
+  position: static;
+  background: transparent;
+  backdrop-filter: none;
+}

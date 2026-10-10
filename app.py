@@ -7,7 +7,7 @@ import sys
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 
-# TODO: This path is regenerated all over the place in Applio
+# TODO: This path is regenerated all over the place in ReMiFaSol
 # should probably be in a static module for everything to reference
 CONFIG_PATH = os.path.join(now_dir, "assets", "config.json")
 
@@ -34,7 +34,7 @@ DEFAULT_PORT = 6969
 MAX_PORT_ATTEMPTS = 10
 
 _ARG_PARSER = argparse.ArgumentParser(
-    description="Applio Web UI",
+    description="ReMiFaSol Web UI",
     formatter_class=argparse.RawDescriptionHelpFormatter,
 )
 _ARG_PARSER.add_argument(
@@ -64,21 +64,6 @@ _has_open = _args.open
 logging.getLogger("uvicorn").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# Suppress ConnectionResetError on Windows when a remote peer forcibly closes the
-# connection during asyncio shutdown (WinError 10054 / ProactorBasePipeTransport).
-if sys.platform == "win32":
-    import asyncio.proactor_events as _pe
-
-    _orig_ccl = _pe._ProactorBasePipeTransport._call_connection_lost
-
-    def _ccl_patched(self, exc):
-        try:
-            _orig_ccl(self, exc)
-        except ConnectionResetError:
-            pass
-
-    _pe._ProactorBasePipeTransport._call_connection_lost = _ccl_patched
-
 # Fix Gradio NoneType error when entering an invalid value
 gr.Number.preprocess = types.MethodType(
     lambda self, payload: (
@@ -94,8 +79,8 @@ gr.Number.preprocess = types.MethodType(
 # detect gradio
 GRADIO_6 = int(gr.__version__.split(".")[0]) >= 6
 
-# Zluda hijack
-import rvc.lib.zluda
+# AMD dilated-conv workaround
+import rvc.lib.amd
 
 # Import Tabs
 from tabs.inference.inference import inference_tab
@@ -116,7 +101,7 @@ from core import run_prerequisites_script
 run_prerequisites_script(
     pretraineds_hifigan=True,
     models=True,
-    exe=True,
+    exe=False,
 )
 
 # Initialize i18n
@@ -124,66 +109,54 @@ from assets.i18n.i18n import I18nAuto
 
 i18n = I18nAuto()
 
-# Start Discord presence if enabled
-from tabs.settings.sections.presence import load_config_presence
-
-if load_config_presence():
-    from assets.discord_presence import RPCManager
-
-    RPCManager.start_presence()
-
-# Check installation
-import assets.installation_checker as installation_checker
-
-installation_checker.check_installation()
-
 # Load theme
 import assets.themes.loadThemes as loadThemes
 
-my_applio = loadThemes.load_theme() or "ParityError/Interstellar"
+ui_theme = loadThemes.load_theme() or "ParityError/Interstellar"
+
+STUDIO_CSS = pathlib.Path(os.path.join(now_dir, "assets", "themes", "studio.css")).read_text()
+
+
+
+def device_badge() -> str:
+    import torch
+
+    if torch.cuda.is_available():
+        props = torch.cuda.get_device_properties(0)
+        return f"{props.name} · {props.total_memory / 1024**3:.0f} GB"
+    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return "Apple GPU (MPS)"
+    return "CPU only"
+
 
 # Define Gradio interface
-with gr.Blocks(
-    title="Applio",
-    **(
-        {
-            "theme": my_applio,
-            "css": "footer{display:none !important}",
-            "js": (
-                (
-                    "() => {\n"
-                    + pathlib.Path(
-                        os.path.join(now_dir, "tabs", "realtime", "main.js")
-                    ).read_text()
-                    + "\n}"
-                )
-                if client_mode
-                else None
-            ),
-        }
-        if not GRADIO_6
-        else {}
-    ),
-) as Applio:
-    gr.Markdown("# Applio")
-    gr.Markdown(
-        i18n(
-            "A simple, high-quality voice conversion tool focused on ease of use and performance."
-        )
-    )
-    gr.Markdown(
-        i18n(
-            "[Support](https://discord.gg/wY7gmqTyEV) — [GitHub](https://github.com/IAHispano/Applio)"
-        )
+with gr.Blocks(title="ReMiFaSol") as ReMiFaSol:
+    gr.HTML(
+        f"""
+        <header class="rmfs-header">
+          <div class="rmfs-brand">
+            <span class="rmfs-notes">♩ ♪ ♫</span>
+            <h1>ReMiFaSol</h1>
+            <p>Voice conversion studio</p>
+          </div>
+          <nav>
+            <span class="rmfs-badge" title="Device used for conversion and training">{device_badge()}</span>
+            <a href="https://github.com/beautycita/ReMiFaSol" target="_blank">GitHub</a>
+          </nav>
+        </header>
+        """
     )
     with gr.Tab(i18n("Inference")):
         inference_tab()
 
+    with gr.Tab(i18n("TTS")):
+        tts_tab()
+
     with gr.Tab(i18n("Training")):
         train_tab()
 
-    with gr.Tab(i18n("TTS")):
-        tts_tab()
+    with gr.Tab(i18n("Download")):
+        download_tab()
 
     with gr.Tab(i18n("Voice Blender")):
         voice_blender_tab()
@@ -191,54 +164,39 @@ with gr.Blocks(
     with gr.Tab(i18n("Realtime")):
         realtime_tab()
 
-    with gr.Tab(i18n("Plugins")):
-        plugins_tab()
-
-    with gr.Tab(i18n("Download")):
-        download_tab()
-
-    with gr.Tab(i18n("Report a Bug")):
-        report_tab()
-
     with gr.Tab(i18n("Extra")):
         extra_tab()
 
-    with gr.Tab(i18n("Settings")):
-        settings_tab()
+    with gr.Tab(i18n("Plugins")):
+        plugins_tab()
 
     with gr.Tab(i18n("TensorBoard")):
         tensorboard_tab()
 
-    gr.Markdown("""
-    <div style="text-align: center; font-size: 0.9em; text-color: a3a3a3;">
-    By using Applio, you agree to comply with ethical and legal standards, respect intellectual property and privacy rights, avoid harmful or prohibited uses, and accept full responsibility for any outcomes, while Applio disclaims liability and reserves the right to amend these terms.
-    </div>
-    """)
+    with gr.Tab(i18n("Settings")):
+        settings_tab()
+
+    with gr.Tab(i18n("Report a Bug")):
+        report_tab()
+
 
 
 def launch_gradio(server_name: str, server_port: int) -> None:
-    app, _, _ = Applio.launch(
+    app, _, _ = ReMiFaSol.launch(
         favicon_path="assets/ICON.ico",
         share=_has_share,
         inbrowser=_has_open,
         server_name=server_name,
         server_port=server_port,
-        prevent_thread_lock=client_mode,
+        # don't block yet: the proxy routes below must be registered first
+        prevent_thread_lock=True,
         allowed_paths=["logs"],
-        **(
-            {
-                "theme": my_applio,
-                "css": "footer{display:none !important}",
-                "js": (
-                    pathlib.Path(
-                        os.path.join(now_dir, "tabs", "realtime", "main.js")
-                    ).read_text()
-                    if client_mode
-                    else None
-                ),
-            }
-            if GRADIO_6
-            else {}
+        theme=ui_theme,
+        css=STUDIO_CSS,
+        js=(
+            pathlib.Path(os.path.join(now_dir, "tabs", "realtime", "main.js")).read_text()
+            if client_mode
+            else None
         ),
     )
 
@@ -280,13 +238,11 @@ def launch_gradio(server_name: str, server_port: int) -> None:
         )
 
     if client_mode:
-        import time
         from rvc.realtime.client import app as fastapi_app
 
         app.mount("/api", fastapi_app)
 
-        while True:
-            time.sleep(5)
+    ReMiFaSol.block_thread()
 
 
 if __name__ == "__main__":

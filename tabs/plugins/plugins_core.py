@@ -11,7 +11,7 @@ i18n = I18nAuto()
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 
-from tabs.settings.sections.restart import restart_applio
+from tabs.settings.sections.restart import restart_app
 
 plugins_path = os.path.join(now_dir, "tabs", "plugins", "installed")
 if not os.path.exists(plugins_path):
@@ -61,42 +61,30 @@ def save_plugin_dropbox(dropbox):
         os.remove(zip_file_path)
 
         if os.path.exists(os.path.join(folder_path, "requirements.txt")):
-            if os.name == "nt":
-                subprocess.run(
-                    [
-                        os.path.join("env", "python.exe"),
-                        "-m",
-                        "pip",
-                        "install",
-                        "-r",
-                        os.path.join(folder_path, "requirements.txt"),
-                    ]
-                )
-            else:
-                subprocess.run(
-                    [
-                        "python",
-                        "-m",
-                        "pip",
-                        "install",
-                        "-r",
-                        os.path.join(folder_path, "requirements.txt"),
-                    ]
-                )
+            subprocess.run(
+                [
+                    "python",
+                    "-m",
+                    "pip",
+                    "install",
+                    "-r",
+                    os.path.join(folder_path, "requirements.txt"),
+                ]
+            )
         else:
             print("No requirements.txt file found in the plugin folder.")
 
         save_existing_folders(get_existing_folders() + [folder_name])
 
         print(
-            f"{folder_name} plugin installed in {plugins_path}! Restarting applio to apply the changes."
+            f"{folder_name} plugin installed in {plugins_path}! Restarting remifasol to apply the changes."
         )
         gr.Info(
             i18n(
-                "{} plugin installed in {}! Restarting applio to apply the changes."
+                "{} plugin installed in {}! Restarting remifasol to apply the changes."
             ).format(folder_name, plugins_path)
         )
-        restart_applio()
+        restart_app()
     return None
 
 
@@ -110,29 +98,17 @@ def check_new_folders():
             print(f"New plugin {new_folder} found, installing it...")
 
             if os.path.exists(os.path.join(complete_path, "requirements.txt")):
-                if os.name == "nt":
-                    subprocess.run(
-                        [
-                            os.path.join("env", "python.exe"),
-                            "-m",
-                            "pip",
-                            "install",
-                            "-r",
-                            os.path.join(complete_path, "requirements.txt"),
-                        ]
-                    )
-                else:
-                    subprocess.run(
-                        [
-                            "python",
-                            "-m",
-                            "pip",
-                            "install",
-                            "-r",
-                            os.path.join(complete_path, "requirements.txt"),
-                        ]
-                    )
+                subprocess.run(
+                    [
+                        "python",
+                        "-m",
+                        "pip",
+                        "install",
+                        "-r",
+                        os.path.join(complete_path, "requirements.txt"),
+                    ]
+                )
             else:
                 print("No requirements.txt file found in the plugin folder.")
-        print("Plugins checked and installed! Restarting applio to apply the changes.")
-        restart_applio()
+        print("Plugins checked and installed! Restarting remifasol to apply the changes.")
+        restart_app()

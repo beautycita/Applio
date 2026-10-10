@@ -3,6 +3,8 @@ import sys
 import json
 import shutil
 import requests
+
+from rvc.lib.tools.hf_auth import hf_headers
 import tempfile
 import gradio as gr
 import pandas as pd
@@ -57,7 +59,7 @@ def save_drop_model(dropbox):
     return None
 
 
-json_url = "https://huggingface.co/IAHispano/Applio/raw/main/pretrains.json"
+json_url = "https://huggingface.co/bc-deb/ReMiFaSol/raw/main/pretrains.json"
 
 
 def fetch_pretrained_data():
@@ -72,7 +74,7 @@ def fetch_pretrained_data():
             data = json.load(f)
     except:
         try:
-            response = requests.get(json_url)
+            response = requests.get(json_url, headers=hf_headers())
             response.raise_for_status()
             data = response.json()
             with open(

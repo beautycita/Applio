@@ -1231,18 +1231,17 @@ def inference_tab():
                     "An error occurred during audio batch conversion. Please check the console logs for more details."
                 )
 
-        gr.Markdown(value=i18n("## Conversion"))
 
         terms_checkbox = gr.Checkbox(
             label=i18n("I agree to the terms of use"),
             info=i18n(
-                "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/IAHispano/Applio/blob/main/TERMS_OF_USE.md) before proceeding with your inference."
+                "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/beautycita/ReMiFaSol/blob/main/TERMS_OF_USE.md) before proceeding with your inference."
             ),
-            value=False,
-            interactive=True,
+            value=True,
+            visible=False,  # private app: no terms gate
         )
 
-        convert_button1 = gr.Button(i18n("Convert"))
+        convert_button1 = gr.Button(i18n("Convert"), variant="primary")
 
         with gr.Row():
             vc_output1 = gr.Textbox(
@@ -1854,17 +1853,16 @@ def inference_tab():
                             i18n("Move files to custom embedder folder")
                         )
 
-        gr.Markdown(value=i18n("## Conversion"))
 
         terms_checkbox_batch = gr.Checkbox(
             label=i18n("I agree to the terms of use"),
             info=i18n(
-                "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/IAHispano/Applio/blob/main/TERMS_OF_USE.md) before proceeding with your inference."
+                "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/beautycita/ReMiFaSol/blob/main/TERMS_OF_USE.md) before proceeding with your inference."
             ),
-            value=False,
-            interactive=True,
+            value=True,
+            visible=False,  # private app: no terms gate
         )
-        convert_button_batch = gr.Button(i18n("Convert"))
+        convert_button_batch = gr.Button(i18n("Convert"), variant="primary")
         stop_button = gr.Button(i18n("Stop convert"), visible=False)
         stop_button.click(fn=stop_infer, inputs=[], outputs=[])
 

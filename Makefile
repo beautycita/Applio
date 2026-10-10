@@ -13,8 +13,8 @@ run-install:
 	pip install -r requirements.txt
 	apt-get update
 
-# Run Applio
-run-applio:
+# Run ReMiFaSol
+run-remifasol:
 	python app.py --share
 
 # Run Tensorboard

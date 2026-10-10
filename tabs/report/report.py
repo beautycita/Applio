@@ -46,7 +46,7 @@ def report_tab():
             "2. Once you have finished recording the issue, click on the 'Stop Recording' button (the same button, but the label changes depending on whether you are actively recording or not)."
         ),
         i18n(
-            "3. Go to [GitHub Issues](https://github.com/IAHispano/Applio/issues) and click on the 'New Issue' button."
+            "3. Go to [GitHub Issues](https://github.com/beautycita/ReMiFaSol/issues) and click on the 'New Issue' button."
         ),
         i18n(
             "4. Complete the provided issue template, ensuring to include details as needed, and utilize the assets section to upload the recorded file from the previous step."

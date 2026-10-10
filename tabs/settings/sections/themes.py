@@ -19,7 +19,7 @@ def theme_tab():
                 value=loadThemes.read_current_theme(),
                 label=i18n("Theme"),
                 info=i18n(
-                    "Select the theme you want to use. (Requires restarting Applio)"
+                    "Select the theme you want to use. (Requires restarting ReMiFaSol)"
                 ),
                 visible=True,
             )

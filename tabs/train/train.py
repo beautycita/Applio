@@ -323,7 +323,7 @@ def upload_to_google_drive(pth_path, index_path, model_name):
             zipf.write(pth_path, os.path.basename(pth_path))
             if index_path and os.path.exists(index_path):
                 zipf.write(index_path, os.path.basename(index_path))
-        drive_folder = "/content/drive/MyDrive/ApplioExported"
+        drive_folder = "/content/drive/MyDrive/ReMiFaSolExported"
         os.makedirs(drive_folder, exist_ok=True)
         dest = os.path.join(drive_folder, zip_path)
         if os.path.exists(dest):
@@ -379,9 +379,9 @@ def train_tab():
                 architecture = gr.Radio(
                     label=i18n("Architecture"),
                     info=i18n(
-                        "Choose the model architecture:\n- **RVC (V2)**: Default option, compatible with all clients.\n- **Applio**: Advanced quality with improved vocoders and higher sample rates, Applio-only."
+                        "Choose the model architecture:\n- **RVC (V2)**: Default option, compatible with all clients.\n- **ReMiFaSol**: Advanced quality with improved vocoders and higher sample rates, ReMiFaSol-only."
                     ),
-                    choices=["RVC", "Applio"],
+                    choices=[("RVC", "RVC"), ("ReMiFaSol", "Applio")],
                     value="RVC",
                     interactive=True,
                     visible=False,
@@ -397,7 +397,7 @@ def train_tab():
                 vocoder = gr.Radio(
                     label=i18n("Vocoder"),
                     info=i18n(
-                        "Choose the vocoder for audio synthesis:\n- **HiFi-GAN**: Default option, compatible with all clients.\n- **MRF HiFi-GAN**: Higher fidelity, Applio-only.\n- **RefineGAN**: Superior audio quality, Applio-only."
+                        "Choose the vocoder for audio synthesis:\n- **HiFi-GAN**: Default option, compatible with all clients.\n- **MRF HiFi-GAN**: Higher fidelity, ReMiFaSol-only.\n- **RefineGAN**: Superior audio quality, ReMiFaSol-only."
                     ),
                     choices=["HiFi-GAN", "RefineGAN"],  # "MRF HiFi-GAN", ],
                     value="HiFi-GAN",
@@ -817,10 +817,10 @@ def train_tab():
         terms_checkbox = gr.Checkbox(
             label=i18n("I agree to the terms of use"),
             info=i18n(
-                "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/IAHispano/Applio/blob/main/TERMS_OF_USE.md) before proceeding with your training."
+                "Please ensure compliance with the terms and conditions detailed in [this document](https://github.com/beautycita/ReMiFaSol/blob/main/TERMS_OF_USE.md) before proceeding with your training."
             ),
-            value=False,
-            interactive=True,
+            value=True,
+            visible=False,  # private app: no terms gate
         )
         train_output_info = gr.Textbox(
             label=i18n("Training output"),
@@ -852,7 +852,7 @@ def train_tab():
         if os.getenv("COLAB_RELEASE_TAG"):
             gr.Markdown(
                 i18n(
-                    "The 'Upload' button packages the model into a .zip file and saves it to the ApplioExported folder in your Google Drive."
+                    "The 'Upload' button packages the model into a .zip file and saves it to the ReMiFaSolExported folder in your Google Drive."
                 )
             )
         with gr.Row():

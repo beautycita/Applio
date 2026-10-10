@@ -25,3 +25,5 @@ env
 venv
 .venv
 
+
+.playwright-mcp

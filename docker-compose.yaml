@@ -1,7 +1,7 @@
 version: '1'
 
 services:
-  applio:
+  remifasol:
     build:
       context: ./
       dockerfile: Dockerfile

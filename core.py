@@ -489,14 +489,8 @@ def shutdown_after_training():
     os_name = sys.platform
     shutdown_time = None
 
-    # Windows
-    if os_name == "win32":
-        delay_seconds = 300
-        shutdown_time = datetime.now() + timedelta(seconds=delay_seconds)
-        os.system(f"shutdown /s /t {delay_seconds}")
-
     # MacOS
-    elif os_name == "darwin":
+    if os_name == "darwin":
         shutdown_time = datetime.now()
         os.system("osascript -e 'tell app \"System Events\" to shut down'")
 
@@ -915,7 +909,7 @@ def _post_process_opts(func):
 
 @click.group(invoke_without_command=True)
 @click.version_option(
-    version=VERSION, prog_name="Applio", message="%(prog)s v%(version)s"
+    version=VERSION, prog_name="ReMiFaSol", message="%(prog)s v%(version)s"
 )
 @click.pass_context
 def cli(ctx):

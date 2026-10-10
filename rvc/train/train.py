@@ -39,7 +39,7 @@ from rvc.train.utils import (
 )
 
 # Zluda hijack
-import rvc.lib.zluda
+import rvc.lib.amd
 from rvc.lib.algorithm import commons
 from rvc.train.process.extract_model import extract_model
 
@@ -118,8 +118,6 @@ except FileNotFoundError:
 config.data.training_files = os.path.join(experiment_dir, "filelist.txt")
 
 torch.backends.cudnn.deterministic = False
-if os.name == "nt":  # Windows
-    torch.backends.cudnn.benchmark = True
 
 # TF32 settings, should improve performance in some cases
 try:

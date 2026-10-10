@@ -111,7 +111,7 @@ def save_lang_settings(selected_language):
         config["lang"]["override"] = True
         config["lang"]["selected_lang"] = selected_language
 
-    gr.Info(i18n("Language have been saved. Restart Applio to apply the changes."))
+    gr.Info(i18n("Language have been saved. Restart ReMiFaSol to apply the changes."))
 
     with open(config_file, "w", encoding="utf8") as file:
         json.dump(config, file, indent=2)
@@ -122,7 +122,7 @@ def lang_tab():
         selected_language = gr.Dropdown(
             label=i18n("Language"),
             info=i18n(
-                "Select the language you want to use. (Requires restarting Applio)"
+                "Select the language you want to use. (Requires restarting ReMiFaSol)"
             ),
             value=get_language_settings(),
             choices=get_language_choices(),

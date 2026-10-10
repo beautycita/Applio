@@ -8,9 +8,6 @@ NC='\033[0m' # No Color
 printf "\033]0;Installer\007"
 clear
 
-# Delete Windows bat files (.bat)
-find . -type f -iname "*.bat" -delete
-
 # Function to log messages with timestamps
 log_message() {
     local msg="$1"
@@ -104,14 +101,14 @@ install_python_ffmpeg() {
 # Function to create or activate a virtual environment
 prepare_install() {
     if [ -d ".venv" ]; then
-        log_message "Virtual environment found. This implies Applio has been already installed or this is a broken install."
+        log_message "Virtual environment found. This implies ReMiFaSol has been already installed or this is a broken install."
         if confirm "Do you want to execute the install script again?"; then
             log_message "Continuing with the installation."
             rm -rf .venv
             create_venv
         else
-            chmod +x run-applio.sh
-            ./run-applio.sh && exit 0
+            chmod +x run-remifasol.sh
+            ./run-remifasol.sh && exit 0
         fi
     else
         create_venv
@@ -144,7 +141,15 @@ create_venv() {
             uv pip install -r requirements.txt
         else 
             # nvidia-smi &>/dev/null; then
-            uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128 --index-strategy unsafe-best-match
+            # cu128 wheels need compute capability 7.0+; older cards (Maxwell/Pascal) need cu126
+            local cu="cu128"
+            local cap
+            cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n1 | cut -d. -f1)
+            if [ -n "$cap" ] && [ "$cap" -lt 7 ]; then
+                cu="cu126"
+            fi
+            log_message "Using PyTorch $cu wheels..."
+            uv pip install -r requirements.txt --extra-index-url "https://download.pytorch.org/whl/$cu" --index-strategy unsafe-best-match
         fi
     else
         log_message "requirements.txt not found. Please ensure it exists."
@@ -158,7 +163,10 @@ create_venv() {
 finish() {
     # clear
     log_message "##########"
-    log_message "Applio has been successfully installed. Run the file run-applio.sh to start the web interface!"
+    log_message "ReMiFaSol has been successfully installed. Run the file run-remifasol.sh to start the web interface!"
+    if ! .venv/bin/hf auth whoami >/dev/null 2>&1; then
+        log_message "Model files come from a private Hugging Face repo: run '.venv/bin/hf auth login' before the first launch."
+    fi
     log_message "##########"
     exit 0
 }
@@ -177,8 +185,7 @@ if [ "$(uname)" = "Darwin" ]; then
     export PATH="$(brew --prefix)/bin:$PATH"
     brew install faiss
 elif [ "$(uname)" != "Linux" ]; then
-    log_message "Unsupported operating system. Are you using Windows?"
-    log_message "If yes, use the batch (.bat) file instead of this one!"
+    log_message "Unsupported operating system. ReMiFaSol runs on Linux and macOS."
     exit 1
 fi
 
