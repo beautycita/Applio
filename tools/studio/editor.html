@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mesa de edición · BeautyCita</title>
+<style>
+:root{--bg:#1b1418;--panel:#271d23;--fg:#f6eef2;--dim:#b7a3ad;--pink:#ff5fa2;--ok:#5fd38a;--bad:#ff4d4d;--field:#120d10}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px;display:grid;gap:16px}
+h1{margin:0;font-size:22px}h1 span{color:var(--pink)}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+a{color:var(--pink);font-weight:700;text-decoration:none}
+section{background:var(--panel);border-radius:12px;padding:16px;display:grid;gap:14px}
+label,.lbl{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+select{width:100%;padding:10px;border-radius:8px;border:1px solid #4a3a43;background:var(--field);color:var(--fg);font-size:16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+button{border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:700;cursor:pointer;background:var(--pink);color:#fff}
+button:disabled{opacity:.5;cursor:wait}
+button.sec{background:#3a2c34;color:var(--fg);font-size:14px;padding:9px 16px}
+.slider{display:grid;gap:6px}
+.slider .ends{display:flex;justify-content:space-between;color:var(--dim);font-size:13px}
+.slider .val{font:700 22px ui-monospace,monospace;color:var(--pink)}
+input[type=range]{width:100%;accent-color:var(--pink);height:28px}
+audio{width:100%;height:40px}
+.hint{color:var(--dim);font-size:14px}
+#msg{min-height:1.4em}.err{color:var(--bad)}
+.ed{background:var(--field);border-radius:10px;padding:12px;display:grid;gap:8px}
+.ed .p{color:var(--dim);font-size:14px}.ed .dl{display:flex;gap:14px;flex-wrap:wrap}
+details summary{cursor:pointer;color:var(--dim);font-size:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+</style></head><body><main>
+<header><h1>Mesa de edición <span>BeautyCita</span></h1><a href="/voz/">← Cabina de voz</a></header>
+
+<section>
+  <label>1 · Versión a editar</label>
+  <select id="src"></select>
+  <div class="grid2">
+    <div><div class="lbl">Su voz, limpia (sin convertir)</div><audio id="aOrig" controls preload="none"></audio></div>
+    <div><div class="lbl">Lo que salió del auto-flow</div><audio id="aAuto" controls preload="none"></audio></div>
+  </div>
+  <div id="srcinfo" class="hint"></div>
+</section>
+
+<section>
+  <label>2 · Voz</label>
+  <div class="chips">
+    <button class="sec" data-p='{"mezcla":0,"afinacion":0}'>Su voz, pulida</button>
+    <button class="sec" data-p='{"mezcla":40,"afinacion":20}'>Su interpretación, voz más fina</button>
+    <button class="sec" data-p='{"mezcla":70,"afinacion":60}'>Pop afinada</button>
+    <button class="sec" data-p='{"mezcla":100,"afinacion":100}'>Auto-tune completo</button>
+  </div>
+  <div><div class="lbl">Modelo de voz sintética</div><select id="voz"></select></div>
+  <div class="slider"><div class="row" style="justify-content:space-between"><span class="lbl">Mezcla</span><span class="val" id="vMez"></span></div>
+    <input type="range" id="mezcla" min="0" max="100" step="5" value="40">
+    <div class="ends"><span>Quetzaly</span><span>Sintética</span></div></div>
+  <div class="slider"><div class="row" style="justify-content:space-between"><span class="lbl">Afinación de la voz sintética</span><span class="val" id="vAfi"></span></div>
+    <input type="range" id="afinacion" min="0" max="100" step="5" value="20">
+    <div class="ends"><span>Natural</span><span>Auto-tune</span></div></div>
+  <div class="slider"><div class="row" style="justify-content:space-between"><span class="lbl">Tono (semitonos)</span><span class="val" id="vTon"></span></div>
+    <input type="range" id="tono" min="-6" max="6" step="1" value="0">
+    <div class="ends"><span>Más grave</span><span>Más aguda</span></div></div>
+  <div class="hint">La voz sintética sigue su interpretación palabra por palabra: su ritmo y su intención, con otro timbre. Cambiar solo la mezcla o el pulido es rápido; cambiar modelo, afinación o tono vuelve a convertir (1–3 min).</div>
+</section>
+
+<section>
+  <label>3 · Pulido en SoundCraft</label>
+  <div class="grid2">
+    <div><div class="lbl">Cadena</div><select id="pulido"></select></div>
+    <div><div class="lbl">Volumen final</div><select id="lufs">
+      <option value="-16">−16 LUFS · web y redes</option>
+      <option value="-14">−14 LUFS · streaming</option>
+      <option value="-23">−23 LUFS · TV / broadcast</option></select></div>
+  </div>
+  <div class="row"><button id="go">▶ Renderizar</button><span id="msg" class="hint"></span></div>
+</section>
+
+<section>
+  <label>4 · Ediciones · descargas sin pérdida (WAV 24-bit / FLAC)</label>
+  <div id="eds" class="hint">Todavía no hay ediciones de esta versión.</div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let fuentes=[],pulidos={};
+function showVals(){$('vMez').textContent=$('mezcla').value+' %';$('vAfi').textContent=$('afinacion').value+' %';
+  const t=+$('tono').value;$('vTon').textContent=(t>0?'+':'')+t;
+  $('afinacion').disabled=$('voz').disabled=$('tono').disabled=+$('mezcla').value===0}
+['mezcla','afinacion','tono'].forEach(id=>$(id).oninput=()=>{showVals();saveCtl()});
+document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{const p=JSON.parse(b.dataset.p);
+  for(const k in p)$(k).value=p[k];showVals();saveCtl()});
+function saveCtl(){store.set('voz.editor',JSON.stringify({mezcla:$('mezcla').value,afinacion:$('afinacion').value,tono:$('tono').value,
+  voz:$('voz').value,pulido:$('pulido').value,lufs:$('lufs').value}))}
+function loadCtl(){try{const c=JSON.parse(store.get('voz.editor')||'{}');for(const k in c)if($(k)&&c[k]!==undefined)$(k).value=c[k]}catch(e){}}
+$('voz').onchange=$('pulido').onchange=$('lufs').onchange=saveCtl;
+
+async function init(){
+  const [f,m]=await Promise.all([fetch('/voz/fuentes').then(r=>r.json()),fetch('/voz/modelos').then(r=>r.json())]);
+  fuentes=f.filter(x=>x.editable);pulidos=m.pulidos;
+  $('voz').innerHTML=m.voces.map(v=>`<option>${esc(v)}</option>`).join('');
+  $('pulido').innerHTML=Object.entries(pulidos).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+  if(!fuentes.length){$('src').innerHTML='<option>Sin versiones todavía</option>';
+    $('srcinfo').innerHTML='Procesa una versión en la <a href="/voz/">cabina</a> y aparece aquí.';$('go').disabled=true}
+  else $('src').innerHTML=fuentes.map(x=>`<option value="${x.carpeta}">${x.carpeta.slice(0,4)}-${x.carpeta.slice(4,6)}-${x.carpeta.slice(6,8)} ${x.carpeta.slice(9,11)}:${x.carpeta.slice(11,13)} · ${x.tono} · ${x.duracion}s · ${x.encontradas.length} escenas</option>`).join('');
+  const want=new URLSearchParams(location.search).get('r');
+  if(want&&fuentes.some(x=>x.carpeta===want))$('src').value=want;
+  loadCtl();showVals();showSrc();state();
+}
+function src(){return fuentes.find(x=>x.carpeta===$('src').value)}
+function showSrc(){const s=src();if(!s)return;const b='/voz/final/'+s.carpeta+'/';
+  $('aOrig').src=b+'fuente.wav';$('aAuto').src=b+'voz-completa.wav';
+  $('srcinfo').textContent=`Escenas: ${s.encontradas.map(e=>e.titulo).join(' · ')}`+(s.faltan.length?` — faltan: ${s.faltan.join(', ')}`:'');
+  loadEds()}
+$('src').onchange=showSrc;
+
+async function loadEds(){const s=src();if(!s)return;
+  const all=(await (await fetch('/voz/renders')).json()).filter(r=>r.carpeta===s.carpeta);
+  if(!all.length){$('eds').innerHTML='Todavía no hay ediciones de esta versión.';return}
+  $('eds').innerHTML=all.map(r=>{const b=`/voz/final/${r.carpeta}/ediciones/${r.id}/`;
+    const d=(f,t)=>`<a href="${b}${f}?descargar=1">${t}</a>`;
+    const what=r.mezcla===0?'Su voz':`${100-r.mezcla} % Quetzaly · ${r.mezcla} % ${esc(r.voz)} · afinación ${r.afinacion} %${r.tono?` · tono ${r.tono>0?'+':''}${r.tono}`:''}`;
+    return `<div class="ed"><div><b>${r.id.slice(9,11)}:${r.id.slice(11,13)}</b> · ${what}</div>
+      <div class="p">Pulido: ${esc(pulidos[r.pulido]||r.pulido)} · ${r.lufs} LUFS · ${r.duracion}s</div>
+      <audio controls preload="none" src="${b}voz.wav"></audio>
+      <div class="dl">${d('voz.wav','⬇ WAV 24-bit')} ${d('voz.flac','⬇ FLAC')} ${d('BeautyCita-edicion-'+r.id+'.zip','⬇ Todo (zip)')}
+        <button class="sec" data-r='${JSON.stringify({mezcla:r.mezcla,afinacion:r.afinacion,tono:r.tono,pulido:r.pulido,lufs:r.lufs_objetivo,voz:r.voz==='original'?'':r.voz})}'>Usar estos ajustes</button></div>
+      ${r.escenas.length?`<details><summary>Escenas sueltas (${r.escenas.length})</summary><div class="dl" style="padding-top:6px">${r.escenas.map(e=>`<a href="${b}escenas/${e}?descargar=1">⬇ ${esc(e.replace('.wav',''))}</a>`).join('')}</div></details>`:''}
+    </div>`}).join('');
+  document.querySelectorAll('.ed button[data-r]').forEach(b=>b.onclick=()=>{const p=JSON.parse(b.dataset.r);
+    for(const k in p)if(p[k]!==''&&$(k))$(k).value=p[k];showVals();saveCtl();scrollTo({top:0,behavior:'smooth'})});
+}
+
+async function state(){
+  const j=await (await fetch('/voz/render/estado')).json();
+  $('go').disabled=j.running||!fuentes.length;$('go').textContent=j.running?'⏳ Renderizando…':'▶ Renderizar';
+  if(j.running)$('msg').textContent=j.msg||'';
+  else if(j.error)$('msg').innerHTML='<span class="err">Falló: '+esc(j.error)+'</span>';
+  else if(j.result){$('msg').textContent='Listo: edición '+j.result.id.slice(9,11)+':'+j.result.id.slice(11,13);}
+  if(j.running)setTimeout(state,2000);else loadEds();
+}
+$('go').onclick=async()=>{const s=src();if(!s)return;
+  const body={carpeta:s.carpeta,voz:$('voz').value,mezcla:+$('mezcla').value,afinacion:+$('afinacion').value,
+    tono:+$('tono').value,pulido:$('pulido').value,lufs:+$('lufs').value};
+  const r=await fetch('/voz/render',{method:'POST',body:JSON.stringify(body)});
+  if(!r.ok){$('msg').innerHTML='<span class="err">'+esc((await r.json()).error||r.status)+'</span>';return}
+  $('msg').textContent='Iniciando…';state()};
+init();
+</script></body></html>
