@@ -10,7 +10,9 @@ HTTPS, so the pages are published through `tailscale serve`:
     -> https://<this-machine>.<tailnet>.ts.net/voz/   and   …/voz/editar/
 
 Modules: guion.py (script, tones, takes, picks), pipeline.py (auto-flow, run in
-the autoflow venv), render.py (editing page renders), booth.html, editor.html.
+the autoflow venv), render.py (editing page renders), mictest.py (the booth's
+"Prueba de micrófono"; clips kept in <out>/pruebas/, never used as takes),
+booth.html, editor.html.
 One job runs at a time: conversion and SoundCraft share the CPU and GPU.
 Tailnet-only: nothing here is public.
 """
@@ -187,6 +189,11 @@ class Studio(BaseHTTPRequestHandler):
             p = os.path.join(self.out, "final", m[1], m[2] or "", m[3])
             if os.path.isfile(p):
                 return self._file(p, download="descargar" in q)
+        m = re.fullmatch(r"/prueba/(\d{8}-\d{6}(?:-lectura|-pulida)?\.wav)", route)
+        if m:
+            p = os.path.join(self.out, "pruebas", m[1])
+            if os.path.isfile(p):
+                return self._file(p)
         if route.startswith("/take/"):
             name = os.path.basename(unquote(route[len("/take/"):]))
             p = os.path.join(self.out, name)
@@ -228,6 +235,28 @@ class Studio(BaseHTTPRequestHandler):
             cmd = [AUTOFLOW_PY, os.path.join(HERE, "render.py"), self.out, carpeta, json.dumps(params)]
             threading.Thread(target=run_job, args=(EDIT, cmd), daemon=True).start()
             return self._json({"started": True}, 202)
+        if route == "/prueba":
+            data = self._body(limit=40 * 1024 * 1024)
+            if not data or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+                return self._json({"error": "la prueba no llegó como WAV"}, 400)
+            try:
+                silence = min(10.0, max(0.5, float(q.get("silencio", "3"))))
+            except ValueError:
+                return self._json({"error": "inválido"}, 400)
+            label = re.sub(r"[^\w ()\-.áéíóúñÁÉÍÓÚÑ]", "", q.get("mic", ""))[:80]
+            folder = os.path.join(self.out, "pruebas")
+            os.makedirs(folder, exist_ok=True)
+            path = os.path.join(folder, datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".wav")
+            with open(path, "wb") as fh:
+                fh.write(data)
+            try:
+                r = subprocess.run([AUTOFLOW_PY, os.path.join(HERE, "mictest.py"), path, str(silence), label],
+                                   cwd=APPLIO, capture_output=True, text=True, timeout=180)
+                result = json.loads(r.stdout.strip().splitlines()[-1])
+            except Exception as exc:
+                return self._json({"error": "no se pudo analizar la prueba: " + str(exc)[-200:]}, 500)
+            print(f"mic test {os.path.basename(path)}: {result.get('veredicto')} ({label})", flush=True)
+            return self._json(result)
         if route == "/elegir":
             try:
                 b = json.loads(self._body() or b"")

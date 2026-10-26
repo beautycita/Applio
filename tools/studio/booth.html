@@ -35,12 +35,18 @@ a.edit{color:var(--pink);font-weight:700;text-decoration:none}
 #tips div{padding:6px 0 6px 10px;border-left:3px solid var(--pink);margin:4px 0;font-size:16px}
 #tips div b{color:var(--pink)}
 #time{font:600 28px ui-monospace,monospace}
+#mt{background:#120d10;border-radius:10px;padding:14px;display:none;gap:10px}#mt.on{display:grid}
+#mtstep{font-size:22px;font-weight:700}#mtstep .big{color:var(--pink);font:700 30px ui-monospace,monospace}
+#mtv{font-size:24px;font-weight:800;padding:10px 14px;border-radius:8px}#mtv.g{background:#173a26;color:var(--ok)}#mtv.y{background:#3a3217;color:#f2c94c}#mtv.r{background:#3a1717;color:var(--bad)}
+#mtgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:640px){#mtgrid{grid-template-columns:1fr}}
 #takes div{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #3a2c34;flex-wrap:wrap}
 #takes audio{height:36px}#fout a{color:var(--pink);font-weight:600}#fout div{padding:4px 0}#fout .warn{color:#f2c94c}.dim{color:var(--dim)}#msg{min-height:1.4em}
 </style></head><body><main>
 <h1>Cabina de voz <span>BeautyCita</span></h1>
 <section>
-  <div><label>Micrófono</label><select id="mic"></select><div id="mickind" style="margin-top:6px;font-size:15px"></div></div>
+  <div><label>Micrófono</label><div class="row" style="flex-wrap:nowrap"><select id="mic"></select><button class="sec" id="mtgo" style="white-space:nowrap">🎤 Prueba de micrófono</button></div><div id="mickind" style="margin-top:6px;font-size:15px"></div></div>
+  <div id="mt"><div id="mtstep"></div><div id="mtv"></div><div id="mtchips" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px"></div><div id="mttips"></div>
+    <div id="mtgrid"></div><div class="row"><button class="sec" id="mtagain" style="display:none">↻ Repetir prueba</button><button class="sec" id="mtclose" style="display:none">Cerrar</button></div></div>
   <details id="lav" open><summary style="cursor:pointer;color:var(--pink);font-weight:700">Cómo poner el micrófono de solapa</summary>
         <div style="display:grid;gap:4px;margin-top:8px;font-size:15px">
       <div>• Al centro del pecho, a <b>un palmo de la boca</b> (15–20 cm), con la cabeza del micrófono hacia arriba.</div>
@@ -136,19 +142,32 @@ navigator.mediaDevices.addEventListener('devicechange',async()=>{
 // (echo ~0.8 s, noise -57 dBFS, normal tone, no hum). 20 ms frames.
 let floorC,an,fbuf,acc=[],tick=0,frames=[],spec=null,specN=0,qspec=null,qN=0,decays=[],clips=0,prevSnap=null;
 const FR=960;
-function roomReset(){if(frames.length>250)prevSnap=roomStats();frames=[];spec=null;specN=0;qspec=null;qN=0;decays=[];clips=0;renderRoom()}
+function roomReset(){if(frames.length>250)prevSnap=roomStats();frames=[];f5=[];acc5=[];spec=null;specN=0;qspec=null;qN=0;decays=[];clips=0;renderRoom()}
 function pct(a,p){if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p*s.length))]}
 function med(a){return pct(a,0.5)}
+// Echo: ring-out from clean word endings on 5 ms frames — the same rule as the
+// server's Prueba de micrófono (mictest.py echo_s), calibrated on the 10-23 Owl
+// take (0.42 s) and a voice with no room (0.14 s). The 20 ms rule it replaces
+// read 2.9 s on that clean voice.
+let f5=[],acc5=[];
+function frame5(dbv){
+  f5.push(dbv);if(f5.length>1400)f5.shift();
+  const n=f5.length,i=n-101;if(i<4||floorC===undefined)return;
+  const sm=k=>(f5[k-1]+f5[k]+f5[k+1])/3,p=sm(i);
+  if(p<=floorC+30)return;
+  for(let k=i-4;k<=i+4;k++)if(sm(k)>p)return;
+  const run=[p];for(let k=1;k<100;k++){const v=sm(i+k);if(v-run[run.length-1]>3)return;run.push(v);if(v<p-25)break}
+  if(run[run.length-1]>=p-25)return;
+  const xs=[],ys=[];run.forEach((v,k)=>{if(v<=p-5&&v>=p-25){xs.push(k*0.005);ys.push(v)}});
+  if(xs.length<3)return;
+  const mx=xs.reduce((a,b)=>a+b)/xs.length,my=ys.reduce((a,b)=>a+b)/ys.length;
+  let nu=0,de=0;xs.forEach((x,j)=>{nu+=(x-mx)*(ys[j]-my);de+=(x-mx)**2});
+  if(nu<0){decays.push(nu/de);if(decays.length>400)decays.shift()}
+}
 function frameIn(dbv){
   frames.push(dbv);if(frames.length>1500)frames.shift();            // last 30 s
   tick++;const n=frames.length;if(n<40)return;
   if(tick%25===0||floorC===undefined)floorC=pct(frames,0.1);const floor=floorC;
-  // decay after a word ends: slope of the fall from -5 to -25 dB below the peak
-  const i=n-21,d=frames;
-  if(d[i]>floor+25&&d[i+1]<d[i]-1&&d[i-1]<=d[i]&&d[i-2]<=d[i-1]+3&&d[i+19]<d[i]-20){
-    const xs=[],ys=[];for(let k=0;k<20;k++){if(d[i+k]<=d[i]-5&&d[i+k]>=d[i]-25){xs.push(k*0.02);ys.push(d[i+k])}}
-    if(xs.length>=3){const mx=xs.reduce((a,b)=>a+b)/xs.length,my=ys.reduce((a,b)=>a+b)/ys.length;
-      let nu=0,de=0;xs.forEach((x,j)=>{nu+=(x-mx)*(ys[j]-my);de+=(x-mx)**2});decays.push(nu/de);if(decays.length>400)decays.shift()}}
   if(an&&tick%5===0){an.getFloatFrequencyData(fbuf);
     const lin=Array.from(fbuf,v=>Math.pow(10,v/10));
     if(dbv>floor+15){if(!spec)spec=new Float64Array(lin.length);lin.forEach((v,j)=>spec[j]+=v);specN++}
@@ -159,7 +178,7 @@ function band(sp,lo,hi){const hz=ctx.sampleRate/an.fftSize;let s=0,c=0;for(let j
 function roomStats(){
   const st={};const sp=frames.filter(v=>v>pct(frames,0.1)+15);
   st.floor=pct(frames,0.1);st.voice=sp.length>50?med(sp):NaN;st.clips=clips;
-  st.echo=decays.length>=12?-60/med(decays):NaN;
+  st.echo=decays.length>=8?-60/med(decays):NaN;
   if(specN>=20){st.low=band(spec,100,300)-band(spec,300,2000);st.pres=band(spec,2000,5000)-band(spec,300,2000)}
   if(qN>=20){const hz=ctx.sampleRate/an.fftSize;let worst=-99;
     for(const h of [60,120,180]){const j=Math.round(h/hz);let nb=0;for(const k of [-8,-7,-6,-5,-4,4,5,6,7,8])nb+=qspec[j+k];nb/=10;
@@ -172,9 +191,9 @@ function renderRoom(){
   if(frames.length<250){$('chips').innerHTML='';$('tips').innerHTML='<div class="dim" style="border:0">Habla normal unos 10 segundos (lee la ventana) para medir la sala…</div>';return}
   // echo
   if(isNaN(st.echo))chip('Eco','midiendo…','');
-  else{const e=st.echo,c=e<0.35?'g':e<0.6?'y':'r';chip('Eco',e.toFixed(2)+' s',c);
+  else{const e=st.echo,c=e<0.25?'g':e<0.4?'y':'r';chip('Eco',e.toFixed(2)+' s',c);
     if(c!=='g')tips.push([c==='r'?3:2,`<b>Eco${c==='r'?' alto':''}:</b> la voz rebota en paredes duras (por eso suena hueca o metálica). Pon cobijas, edredones o almohadas en las paredes más cercanas y detrás de ti; una toalla o cobija sobre la mesa también ayuda. Lo más rápido: graba dentro de un clóset con ropa colgada, o en la recámara en vez de un cuarto vacío.`]);
-    if(e>=0.5)tips.push([2,isLav()?'<b>Sube el micrófono:</b> que quede a un palmo de la boca (15–20 cm), al centro del pecho, no en el cuello de la blusa ni de lado. Con el de solapa bien puesto el eco casi desaparece.':'<b>Usa el micrófono de solapa:</b> estás grabando con un micrófono lejano, por eso se oye el cuarto. Conecta el de solapa y elígelo arriba.'])}
+    if(e>=0.4)tips.push([2,isLav()?'<b>Sube el micrófono:</b> que quede a un palmo de la boca (15–20 cm), al centro del pecho, no en el cuello de la blusa ni de lado. Con el de solapa bien puesto el eco casi desaparece.':'<b>Usa el micrófono de solapa:</b> estás grabando con un micrófono lejano, por eso se oye el cuarto. Conecta el de solapa y elígelo arriba.'])}
   // noise
   {const f=st.floor,c=f<-60?'g':f<-50?'y':'r';chip('Ruido de fondo',f.toFixed(0)+' dB',c);
     if(c!=='g')tips.push([c==='r'?3:1,`<b>Ruido de fondo${c==='r'?' alto':''}:</b> apaga ventilador, aire acondicionado y refrigerador cercano si puedes; cierra puertas y ventanas; aleja la laptop del micrófono y pon el celular en silencio.`])}
@@ -198,8 +217,41 @@ function renderRoom(){
   if(prevSnap&&!isNaN(prevSnap.echo)&&!isNaN(st.echo))$('rprev').textContent=`Antes: eco ${prevSnap.echo.toFixed(2)} s, ruido ${prevSnap.floor.toFixed(0)} dB → ahora: eco ${st.echo.toFixed(2)} s, ruido ${st.floor.toFixed(0)} dB`;
 }
 $('rreset').onclick=roomReset;
+// ---- Prueba de micrófono: 3 s of silence (the room), 12 s reading, analysed on the server
+let testing=false,testChunks=[],testSil=0;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function micTest(){
+  if(recording){msg('Detén la toma antes de la prueba.');return}
+  if(!ctx){try{await openMic()}catch(e){msg('No se pudo abrir el micrófono: '+e.message);return}}
+  await ctx.resume();
+  $('mt').classList.add('on');['mtv','mtchips','mttips','mtgrid'].forEach(id=>$(id).innerHTML='');$('mtv').className='';
+  $('mtagain').style.display=$('mtclose').style.display='none';$('mtgo').disabled=$('rec').disabled=true;
+  testChunks=[];testing=true;
+  for(let s=3;s>0;s--){$('mtstep').innerHTML=`🤫 Silencio, no hables… <span class="big">${s}</span><div class="dim" style="font-size:15px;font-weight:400">Medimos el cuarto y el micrófono en silencio.</div>`;await sleep(1000)}
+  testSil=testChunks.reduce((a,b)=>a+b.length,0)/ctx.sampleRate;
+  for(let s=12;s>0;s--){$('mtstep').innerHTML=`🗣 Ahora lee la ventana de abajo en voz normal… <span class="big">${s}</span>`;await sleep(1000)}
+  testing=false;
+  $('mtstep').textContent='Analizando la prueba… (unos 20 segundos)';
+  try{
+    const r=await fetch('/voz/prueba?silencio='+testSil.toFixed(3)+'&mic='+encodeURIComponent(micLabel()),{method:'POST',body:wav(testChunks,ctx.sampleRate)});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);showTest(j)}
+  catch(e){$('mtstep').innerHTML='<span style="color:var(--bad)">La prueba falló: '+String(e.message).replace(/</g,'&lt;')+'</span>'}
+  $('mtgo').disabled=$('rec').disabled=false;$('mtagain').style.display=$('mtclose').style.display='';
+}
+function showTest(j){
+  $('mtstep').textContent='Resultado de la prueba';
+  const v=$('mtv');v.className=j.color;v.textContent=j.color==='g'?'✓ '+j.veredicto+': graba con confianza':j.color==='y'?'⚠ '+j.veredicto:'✗ '+j.veredicto;
+  $('mtchips').innerHTML=j.checks.map(c=>`<div class="chip ${c.color}"><b>${c.nombre}</b><span>${String(c.valor).replace(/</g,'&lt;')}</span></div>`).join('');
+  const tips=j.checks.filter(c=>c.tip);
+  $('mttips').innerHTML=tips.length?tips.map(c=>`<div style="padding:6px 0 6px 10px;border-left:3px solid var(--pink);margin:4px 0"><b style="color:var(--pink)">${c.nombre}:</b> ${c.tip}</div>`).join(''):'';
+  const a=(f,t)=>f?`<div><label>${t}</label><audio controls preload="none" src="/voz/prueba/${f}" style="width:100%"></audio></div>`:'';
+  $('mtgrid').innerHTML=a(j.cruda,'Tal cual se grabó')+a(j.pulida,'Pulida en SoundCraft');
+}
+$('mtgo').onclick=micTest;$('mtagain').onclick=micTest;$('mtclose').onclick=()=>$('mt').classList.remove('on');
 function onBlock(b){
-  for(const v of b){if(Math.abs(v)>0.98)clips++;acc.push(v*v);
+  if(testing)testChunks.push(b);
+  for(const v of b){if(Math.abs(v)>0.98)clips++;acc.push(v*v);acc5.push(v*v);
+    if(acc5.length>=240){frame5(10*Math.log10(acc5.reduce((a,c)=>a+c,0)/240+1e-12));acc5=[]}
     if(acc.length>=FR){frameIn(10*Math.log10(acc.reduce((a,c)=>a+c,0)/acc.length+1e-12));acc=[]}}
   let pk=0;for(const s of b){const a=Math.abs(s);if(a>pk)pk=a}
   peakHold=Math.max(pk,peakHold*0.97);
@@ -219,6 +271,7 @@ function wav(blocks,rate){
   return new Blob([buf],{type:'audio/wav'});
 }
 $('rec').onclick=async()=>{
+  if(testing)return;
   if(!ctx){try{await openMic()}catch(e){msg('No se pudo abrir el micrófono: '+e.message);return}}
   await ctx.resume();
   if(!recording){chunks=[];t0=performance.now();recording=true;$('rec').textContent='■ Detener';$('rec').classList.add('on');msg('Grabando…');return}
