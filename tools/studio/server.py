@@ -9,6 +9,12 @@ HTTPS, so the pages are published through `tailscale serve`:
     tailscale serve --bg --set-path /voz http://127.0.0.1:8765
     -> https://<this-machine>.<tailnet>.ts.net/voz/   and   …/voz/editar/
 
+Training reading (/entreno*): <out>/entrenamiento/ holds textos.json (Spanish
+passages written to cover every Spanish sound and an ad's range of delivery),
+the takes ent-<id>-r<round>-HHMMSS.wav, and consentimiento.json. Nothing there is
+a commercial take. Recording is refused until her spoken authorization
+(passage 00-consentimiento) is recorded and her written acceptance is saved.
+
 Modules: guion.py (script, tones, takes, picks), pipeline.py (auto-flow, run in
 the autoflow venv), render.py (editing page renders), mictest.py (the booth's
 "Prueba de micrófono"; clips kept in <out>/pruebas/, never used as takes),
@@ -41,6 +47,43 @@ PULIDOS = {"natural": "Natural (EQ, de-esser, compresor)", "radio": "Radio (pres
            "calido": "Cálido (cuerpo, agudos suaves)", "limpio": "Sin color (solo volumen)"}
 CTYPES = {"wav": "audio/wav", "flac": "audio/flac", "mp3": "audio/mpeg", "zip": "application/zip",
           "json": "application/json"}
+
+RONDAS = [{"n": 1, "intencion": "Natural, como platicando"},
+          {"n": 2, "intencion": "Más expresiva: más sonrisa, más energía"},
+          {"n": 3, "intencion": "Más suave y cercana, como al oído"}]
+ENT_TAKE = re.compile(r"^ent-(?P<id>[\w-]{1,40}?)-r(?P<r>[123])-\d{6}(?:-\d+)?\.wav$")
+ENT_META_MIN = 20
+
+
+def ent_dir(out):
+    return os.path.join(out, "entrenamiento")
+
+
+def ent_state(out):
+    d = ent_dir(out)
+    os.makedirs(d, exist_ok=True)
+    try:
+        textos = json.load(open(os.path.join(d, "textos.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        textos = []
+    tomas = []
+    for f in sorted(os.listdir(d), key=lambda f: os.path.getmtime(os.path.join(d, f))):
+        m = ENT_TAKE.match(f)
+        if m:
+            tomas.append({"file": f, "id": m["id"], "ronda": int(m["r"]),
+                          "seconds": round((os.path.getsize(os.path.join(d, f)) - 44) / (48000 * 3), 1)})
+    try:
+        consent = json.load(open(os.path.join(d, "consentimiento.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        consent = None
+    # minutes that train the model: the latest take of each passage and round, authorization excluded
+    latest = {}
+    for t in tomas:
+        if t["id"] != "00-consentimiento":
+            latest[(t["id"], t["ronda"])] = t["seconds"]
+    return {"textos": textos, "rondas": RONDAS, "tomas": tomas[::-1], "consentimiento": consent,
+            "minutos": round(sum(latest.values()) / 60, 1), "meta_min": ENT_META_MIN}
+
 
 LOCK = threading.Lock()
 FLOW = {"running": False, "msg": "", "result": None, "error": None}
@@ -175,6 +218,14 @@ class Studio(BaseHTTPRequestHandler):
                 r = results(self.out)
                 state["result"] = next((x for x in r if x["tono"] == q.get("tono", "casual")), None)
             return self._json(state)
+        if route == "/entreno":
+            return self._json(ent_state(self.out))
+        if route.startswith("/entreno/toma/"):
+            name = os.path.basename(unquote(route[len("/entreno/toma/"):]))
+            p = os.path.join(ent_dir(self.out), name)
+            if ENT_TAKE.match(name) and os.path.isfile(p):
+                return self._file(p)
+            return self._send(404, '{"error":"not found"}')
         if route == "/fuentes":
             return self._json(results(self.out))
         if route == "/modelos":
@@ -235,6 +286,45 @@ class Studio(BaseHTTPRequestHandler):
             cmd = [AUTOFLOW_PY, os.path.join(HERE, "render.py"), self.out, carpeta, json.dumps(params)]
             threading.Thread(target=run_job, args=(EDIT, cmd), daemon=True).start()
             return self._json({"started": True}, 202)
+        if route == "/entreno/acepto":
+            try:
+                b = json.loads(self._body() or b"")
+            except ValueError:
+                return self._json({"error": "inválido"}, 400)
+            nombre = re.sub(r"\s+", " ", str(b.get("nombre", ""))).strip()[:80]
+            st = ent_state(self.out)
+            audio = next((t["file"] for t in st["tomas"] if t["id"] == "00-consentimiento"), None)
+            if not audio:
+                return self._json({"error": "primero graba la autorización (texto 00) en voz alta"}, 400)
+            if len(nombre) < 5 or not b.get("acepto"):
+                return self._json({"error": "escribe tu nombre completo y marca que aceptas"}, 400)
+            texto = next((t["texto"] for t in st["textos"] if t["id"] == "00-consentimiento"), "")
+            rec = {"nombre": nombre, "aceptado_en": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+                   "texto": texto, "grabacion": audio}
+            with open(os.path.join(ent_dir(self.out), "consentimiento.json"), "w", encoding="utf-8") as fh:
+                json.dump(rec, fh, ensure_ascii=False, indent=1)
+            print(f"training consent accepted by {nombre} (audio {audio})", flush=True)
+            return self._json(rec)
+        if route == "/entreno/save":
+            scene = re.sub(r"[^\w-]+", "-", q.get("id", "")).strip("-")[:40]
+            ronda = q.get("ronda", "1")
+            st = ent_state(self.out)
+            if scene not in {t["id"] for t in st["textos"]} or ronda not in ("1", "2", "3"):
+                return self._json({"error": "texto o ronda inválidos"}, 400)
+            if scene != "00-consentimiento" and not st["consentimiento"]:
+                return self._json({"error": "falta la autorización: graba el texto 00 y acepta por escrito"}, 403)
+            data = self._body(limit=500 * 1024 * 1024)
+            if not data or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+                return self._json({"error": "not a wav"}, 400)
+            base = f"ent-{scene}-r{ronda}-{datetime.datetime.now().strftime('%H%M%S')}"
+            name, n = f"{base}.wav", 1
+            while os.path.exists(os.path.join(ent_dir(self.out), name)):
+                n += 1
+                name = f"{base}-{n}.wav"
+            with open(os.path.join(ent_dir(self.out), name), "wb") as fh:
+                fh.write(data)
+            print(f"saved training take {name} ({len(data) // 1024} KB)", flush=True)
+            return self._json({"file": name})
         if route == "/prueba":
             data = self._body(limit=40 * 1024 * 1024)
             if not data or data[:4] != b"RIFF" or data[8:12] != b"WAVE":

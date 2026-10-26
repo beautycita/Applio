@@ -1,0 +1,128 @@
+[
+ {
+  "id": "00-consentimiento",
+  "titulo": "Autorización (léela tal cual)",
+  "estilo": "Normal, clara, sin actuar.",
+  "texto": "Yo, Quetzaly López, autorizo a BeautyCita, Sociedad Anónima de Capital Variable, a usar estas grabaciones de mi voz para entrenar un modelo de voz sintética. Ese modelo se usará solo en anuncios y comunicaciones de BeautyCita. Sé que puedo retirar esta autorización cuando quiera, y que entonces el modelo y las grabaciones se borrarán. Hoy es día ____ del mes de ____ de dos mil veintiséis."
+ },
+ {
+  "id": "01-narracion",
+  "titulo": "Narración tranquila",
+  "estilo": "Voz de documental: pausada, cálida, sin prisa.",
+  "texto": "En una calle tranquila de Puerto Vallarta, el sol de la mañana entra por la ventana de un pequeño salón. Huele a café y a champú de coco. La dueña acomoda los cepillos, enciende la secadora y revisa la agenda del día: un corte a las diez, un tinte a las doce y unas uñas de gel a las cuatro. Afuera, el mar se escucha a lo lejos. Adentro, todo está listo para empezar."
+ },
+ {
+  "id": "02-sonrisa",
+  "titulo": "Con una sonrisa",
+  "estilo": "Sonríe mientras hablas; que se oiga la sonrisa.",
+  "texto": "¡Qué gusto verte otra vez! Pásale, siéntate, ¿quieres un vasito de agua? Hoy te vamos a consentir. Primero lavamos, luego cortamos solo las puntas, y al final un peinado con ondas suaves, como te gusta. Vas a salir guapísima, ya verás. Y si quieres, de una vez te apartamos tu próxima cita para dentro de un mes."
+ },
+ {
+  "id": "03-energia",
+  "titulo": "Anuncio con energía",
+  "estilo": "Energía alta, ritmo rápido, sin gritar.",
+  "texto": "¡Atención, Guadalajara! Este fin de semana, todos los servicios de manicure y pedicure con veinte por ciento de descuento. Reserva en segundos desde tu celular, elige tu horario y llega directo a tu cita. Sin filas, sin llamadas, sin esperar. ¡Corre, que los lugares vuelan!"
+ },
+ {
+  "id": "04-preguntas",
+  "titulo": "Preguntas",
+  "estilo": "Cada pregunta con su entonación de pregunta, distinta una de otra.",
+  "texto": "¿Cuánto tiempo pasas contestando mensajes? ¿Una hora al día? ¿Dos? ¿Y cuántas clientas se te van porque no alcanzaste a responder? ¿Sabías que la mayoría reserva de noche, cuando tu salón ya cerró? ¿Te imaginas despertar con la agenda llena? ¿Por qué no lo intentas hoy?"
+ },
+ {
+  "id": "05-numeros",
+  "titulo": "Números, precios y fechas",
+  "estilo": "Clara, como quien da datos importantes.",
+  "texto": "El corte de cabello cuesta trescientos cincuenta pesos. El tinte completo, novecientos ochenta. Las pestañas pelo por pelo, mil doscientos cincuenta. Tu cita es el jueves catorce de noviembre a las cuatro y media de la tarde. Si pagas hoy, recibes un quince por ciento de descuento. Llámanos al tres, dos, dos, uno, cinco, ocho, siete, cuatro, cero, nueve."
+ },
+ {
+  "id": "06-marca",
+  "titulo": "Nombres de la marca",
+  "estilo": "Segura, cada nombre bien pronunciado.",
+  "texto": "BeautyCita. ExpressCita. Registra tu salón en beautycita punto com. Con BeautyCita, tus clientas reservan solas. Con ExpressCita, reservan desde tu vitrina. BeautyCita: tu agenda llena, tu tiempo libre. Descarga BeautyCita en la App Store o en Google Play."
+ },
+ {
+  "id": "07-sonidos-r",
+  "titulo": "Erres y rr",
+  "estilo": "Natural, sin exagerar las erres.",
+  "texto": "Rosa recorre la carretera rumbo a Ramos Arizpe. En el carro lleva rizadores, rubor, un perro ruidoso y un ramo de rosas rojas. Al llegar, arregla el cabello rizado de su prima Raquel, que se ríe porque el perro corre y se resbala en el piso recién trapeado. Error tras error, el peinado resultó perfecto."
+ },
+ {
+  "id": "08-sonidos-n-ll",
+  "titulo": "Ñ, ll, y, ch",
+  "estilo": "Conversacional, ritmo normal.",
+  "texto": "La niña de Yolanda llegó llorando porque se cayó en la calle. Su mamá le peinó dos chongos, le puso un moño amarillo y le compró un churro con chocolate. Mañana, en la fiesta de su cumpleaños, llevará una diadema con una piña, una llamita y una estrella. La señora de la tienda le regaló chicles y un llavero."
+ },
+ {
+  "id": "09-sonidos-j-x",
+  "titulo": "J, g, x",
+  "estilo": "Normal, como platicando.",
+  "texto": "Jimena trabaja en Xalapa, pero su familia vive en México y en Oaxaca. Los jueves viaja en autobús con su maleta de gel, jabones, geles y esmaltes. Dice que el viaje es largo, pero que vale la pena: sus clientas la esperan, le guardan un jugo de guayaba y le cuentan chismes de toda la semana."
+ },
+ {
+  "id": "10-calida",
+  "titulo": "Cálida y cercana",
+  "estilo": "Muy cerca, como hablándole a una amiga. Suave.",
+  "texto": "Sé lo que es empezar. Rentar el local, comprar la primera silla, esperar a la primera clienta. Sé lo que es quedarse hasta tarde y levantarse temprano. Por eso hicimos BeautyCita: para que tú hagas lo que amas, y nosotros nos encarguemos de lo demás. No estás sola."
+ },
+ {
+  "id": "11-firme",
+  "titulo": "Firme y seria",
+  "estilo": "Seria, segura, frases cortas. Voz de confianza.",
+  "texto": "Tu dinero está protegido. Cada pago queda registrado. Cada retención se calcula conforme a la ley. Cada comprobante se emite a tiempo. Cuando trabajas en regla, trabajas tranquila. Y cuando tus clientas lo saben, regresan."
+ },
+ {
+  "id": "12-lista",
+  "titulo": "Lista de servicios",
+  "estilo": "Ágil, enumerando con ritmo.",
+  "texto": "Corte, tinte, mechas, balayage, alaciado, keratina, permanente, peinado de novia, maquillaje de noche, cejas con hilo, pestañas, lifting, uñas acrílicas, gel, manicure, pedicure, masaje relajante, facial hidratante, depilación con cera y diseño de barba."
+ },
+ {
+  "id": "13-exclamaciones",
+  "titulo": "Exclamaciones",
+  "estilo": "Cada frase con una emoción distinta: sorpresa, alegría, alivio, orgullo.",
+  "texto": "¡No lo puedo creer, quedó hermoso! ¡Ay, qué alivio, ya llegó! ¡Mira nada más qué uñas! ¡Por fin, la agenda completa! ¡Felicidades, abriste tu segunda sucursal! ¡Qué orgullo, de verdad!"
+ },
+ {
+  "id": "14-explicacion",
+  "titulo": "Explicando paso a paso",
+  "estilo": "Didáctica, paciente, como una maestra.",
+  "texto": "Es muy sencillo. Primero, entras a beautycita punto com y registras tu salón. Después, agregas tus servicios con su precio y su duración. Luego, marcas tu horario y el de cada estilista. Al final, compartes tu página por WhatsApp. Desde ese momento, tus clientas pueden reservar solas."
+ },
+ {
+  "id": "15-suave",
+  "titulo": "Bajito",
+  "estilo": "Casi en secreto: baja la voz pero que se entienda. No te acerques más al micrófono, solo baja el volumen.",
+  "texto": "Te voy a contar un secreto. Las mejores clientas no son las que llegan una vez. Son las que regresan cada mes, las que te recomiendan con sus hermanas, con sus amigas, con su mamá. Cuídalas. Recuérdales su cita. Mándales un mensaje bonito en su cumpleaños."
+ },
+ {
+  "id": "16-historia",
+  "titulo": "Una historia",
+  "estilo": "Contando una anécdota, con cambios de ritmo.",
+  "texto": "Hace dos años, Lucía cortaba el cabello en la cochera de su casa. Tenía una silla, un espejo viejo y muchas ganas. Un día, una clienta le dijo: deberías poner tu salón. Lucía se rió. Pero esa noche hizo cuentas, al mes siguiente rentó un local, y hoy tiene tres estilistas y una lista de espera. Todo empezó con una silla."
+ },
+ {
+  "id": "17-diptongos",
+  "titulo": "Vocales y diptongos",
+  "estilo": "Natural, sin prisa.",
+  "texto": "Aurora y Eugenio viajaron a Huatulco en julio. Ella quería aire, agua y sol; él, cuidar su piel y leer un rato. Cuando volvieron, Aurora fue al salón a hidratarse el cabello y a pintarse las uñas de color ciruela. Eugenio pidió un corte clásico y un masaje en la espalda. Los dos salieron nuevos."
+ },
+ {
+  "id": "18-cierre-venta",
+  "titulo": "Cierre de venta",
+  "estilo": "Convincente, sube al final.",
+  "texto": "Miles de clientas buscan un salón como el tuyo cada día. Algunas te encuentran. Otras no. La diferencia es estar donde ellas buscan. Regístrate hoy, sin costo, y empieza a recibir reservas esta misma semana. BeautyCita. Tu salón, siempre abierto."
+ },
+ {
+  "id": "19-dialogo",
+  "titulo": "Conversación",
+  "estilo": "Dos voces tuyas: la clienta (curiosa) y tú (segura). Sin cambiar la voz de más.",
+  "texto": "¿Y cómo sé que la cita sí es a esa hora? Porque el horario que ves es el real del salón, al minuto. ¿Y si se me hace tarde? Te llega un recordatorio antes, y puedes avisar desde la app. ¿Y si quiero cambiar de día? Lo cambias tú misma, sin llamar. Ah, pues así sí."
+ },
+ {
+  "id": "20-lenta",
+  "titulo": "Muy despacio",
+  "estilo": "Lentísimo, cada palabra separada, como para un anuncio elegante.",
+  "texto": "Belleza. Tiempo. Confianza. Tres cosas que no se improvisan. En tu salón, las cuidas con tus manos. Nosotros cuidamos todo lo demás. BeautyCita."
+ }
+]

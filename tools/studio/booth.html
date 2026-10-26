@@ -27,6 +27,14 @@ button.sec{background:#3a2c34;color:var(--fg);font-size:15px;padding:10px 18px}
 #takes .tk{display:flex;gap:10px;align-items:center;padding:4px 0;flex-wrap:wrap}#takes .tk.win b{color:var(--ok)}
 button.star{background:#3a2c34;color:var(--fg);font-size:13px;padding:6px 12px}button.star.on{background:var(--ok);color:#120d10}
 a.edit{color:var(--pink);font-weight:700;text-decoration:none}
+.modes{display:flex;gap:8px}.modes button{flex:1;background:#271d23;color:var(--dim);font-size:16px;padding:12px}.modes button.on{background:var(--pink);color:#fff}
+#ent{display:none}body.ent #ent{display:grid}body.ent #flow,body.ent #takesec,body.ent #tonos{display:none}
+#entbar{height:16px;background:var(--field,#120d10);border-radius:8px;overflow:hidden}#entbar div{height:100%;background:var(--ok);width:0}
+.rondas{display:flex;gap:8px;flex-wrap:wrap}.rondas button{background:#3a2c34;color:var(--fg);font-size:14px;padding:8px 14px}.rondas button.on{background:var(--pink)}
+.ep{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #3a2c34;flex-wrap:wrap}.ep .t{flex:1;min-width:160px}.ep.cur .t{color:var(--pink);font-weight:700}
+.ep .r{font-size:13px;padding:2px 8px;border-radius:999px;background:#3a2c34;color:var(--dim)}.ep .r.ok{background:#173a26;color:var(--ok)}
+#consent{border:2px solid #f2c94c;border-radius:10px;padding:12px;display:grid;gap:8px}#consent.ok{border-color:var(--ok)}
+#consent input[type=text]{width:100%}
 #room{background:#120d10;border-radius:10px;padding:12px;display:grid;gap:10px}
 #chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .chip{border-radius:8px;padding:8px 10px;background:#271d23;border-left:5px solid #555}
@@ -43,6 +51,7 @@ a.edit{color:var(--pink);font-weight:700;text-decoration:none}
 #takes audio{height:36px}#fout a{color:var(--pink);font-weight:600}#fout div{padding:4px 0}#fout .warn{color:#f2c94c}.dim{color:var(--dim)}#msg{min-height:1.4em}
 </style></head><body><main>
 <h1>Cabina de voz <span>BeautyCita</span></h1>
+<div class="modes"><button data-m="comercial">🎬 Comercial</button><button data-m="ent">🧬 Entrenar su voz</button></div>
 <section>
   <div><label>Micrófono</label><div class="row" style="flex-wrap:nowrap"><select id="mic"></select><button class="sec" id="mtgo" style="white-space:nowrap">🎤 Prueba de micrófono</button></div><div id="mickind" style="margin-top:6px;font-size:15px"></div></div>
   <div id="mt"><div id="mtstep"></div><div id="mtv"></div><div id="mtchips" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px"></div><div id="mttips"></div>
@@ -73,13 +82,21 @@ a.edit{color:var(--pink);font-weight:700;text-decoration:none}
   </div>
   <div class="row"><button id="rec">● Grabar</button><span id="time">0:00</span><span id="msg" class="dim"></span></div>
 </section>
+<section id="ent">
+  <label>Lectura para entrenar su voz · todo en español</label>
+  <div class="dim">Estas grabaciones enseñan a un modelo a sonar como Quetzaly. Se guardan aparte: nunca entran al comercial. Lee cada texto en las tres rondas; la misma frase con distinta intención es lo que hace que la voz sintética suene natural.</div>
+  <div id="consent"></div>
+  <div><div class="row" style="justify-content:space-between"><span class="lbl" style="color:var(--dim);font-size:13px;text-transform:uppercase">Avance</span><b id="entmin"></b></div><div id="entbar"><div></div></div></div>
+  <div class="rondas" id="rondas"></div>
+  <div id="entlist"></div>
+</section>
 <section id="flow"><div class="row" style="justify-content:space-between"><label>Auto-flow: limpiar · ordenar escenas · voz · pulir</label><a class="edit" href="/voz/editar/">Mesa de edición →</a></div>
   <div class="row"><select id="voz" style="width:auto"><option value="US_Female_1">Voz: US_Female_1 (pop femenina)</option><option value="none">Voz: la original de Quetzaly</option></select>
   <button id="go" class="sec" style="background:var(--pink);color:#fff">▶ Procesar</button></div>
   <div id="fmsg" class="dim">Usa las tomas del tono elegido. Si marcaste ★ en una toma, esa es la que se usa para su escena; si no, gana la más reciente. Tarda 3–5 min.</div>
   <div id="fout"></div>
 </section>
-<section><label>Tomas del tono elegido · ★ marca la que se usa en cada escena</label><div id="takes" class="dim">Ninguna todavía.</div></section>
+<section id="takesec"><label>Tomas del tono elegido · ★ marca la que se usa en cada escena</label><div id="takes" class="dim">Ninguna todavía.</div></section>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -276,7 +293,8 @@ $('rec').onclick=async()=>{
   await ctx.resume();
   if(!recording){chunks=[];t0=performance.now();recording=true;$('rec').textContent='■ Detener';$('rec').classList.add('on');msg('Grabando…');return}
   recording=false;$('rec').textContent='● Grabar';$('rec').classList.remove('on');
-  saveTake(wav(chunks,ctx.sampleRate),$('name').value||'toma',tono);
+  if(mode==='ent')saveEnt(wav(chunks,ctx.sampleRate),entSegs[entCur].id,ronda);
+  else saveTake(wav(chunks,ctx.sampleRate),$('name').value||'toma',tono);
 };
 async function saveTake(blob,name,tn){
   msg('Guardando…');
@@ -286,6 +304,14 @@ async function saveTake(blob,name,tn){
     // keep the take in memory: one click retries it, nothing has to be re-read
     $('msg').innerHTML='';const b=document.createElement('button');b.className='sec';b.textContent='↻ Reintentar guardar';
     b.onclick=()=>saveTake(blob,name,tn);$('msg').append('NO se guardó ('+e.message+'). ',b)}
+}
+async function saveEnt(blob,id,rn){
+  msg('Guardando…');
+  try{const r=await fetch('/voz/entreno/save?id='+encodeURIComponent(id)+'&ronda='+rn,{method:'POST',body:blob});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);msg('Guardada: '+j.file);await loadEnt();
+    if(id!=='00-consentimiento'&&entCur<entSegs.length-1){entCur++;showSeg()}}
+  catch(e){$('msg').innerHTML='';const b=document.createElement('button');b.className='sec';b.textContent='↻ Reintentar guardar';
+    b.onclick=()=>saveEnt(blob,id,rn);$('msg').append('NO se guardó ('+e.message+'). ',b)}
 }
 window.addEventListener('beforeunload',e=>{if(recording){e.preventDefault();e.returnValue=''}});
 $('mic').onchange=e=>{if(recording){msg('Detén la toma antes de cambiar de micrófono.');listMics();return}
@@ -312,12 +338,60 @@ function showTono(){document.querySelectorAll('#tonos button').forEach(b=>b.clas
   $('go').textContent='▶ Procesar versión '+tono}
 document.querySelectorAll('#tonos button').forEach(b=>b.onclick=()=>{if(recording){msg('Detén la toma antes de cambiar de tono.');return}
   tono=b.dataset.t;store.set('voz.tono',tono);showTono();showSeg();renderTakes();flowState()});
-function showSeg(){if(!segs.length)return;const g=segs[cur],v=g[tono];
+function showSeg(){
+  if(mode==='ent'){if(!entSegs.length)return;const g=entSegs[entCur];
+    $('segt').textContent=g.titulo+(g.id==='00-consentimiento'?'':' · ronda '+ronda);$('segn').textContent=(entCur+1)+' de '+entSegs.length;
+    $('guion').textContent=g.texto;$('guion').classList.remove('dim');
+    $('nota').textContent='Cómo leerlo: '+g.estilo+(g.id==='00-consentimiento'?'':' · Intención de esta ronda: '+(entRondas.find(r=>r.n===ronda)||{}).intencion);
+    const w=g.texto.split(/\s+/).length;$('segs').textContent='≈ '+Math.round(w/2.5)+' s';
+    if(!recording)$('name').value='ent-'+g.id;
+    const locked=g.id!=='00-consentimiento'&&!entConsent;$('rec').disabled=locked||testing;
+    if(locked)msg('Primero: graba la autorización (texto 1) y acéptala por escrito abajo.');
+    renderEnt();return}
+  if(!segs.length)return;const g=segs[cur],v=g[tono];$('rec').disabled=testing;
   $('segt').textContent=g.titulo;$('segn').textContent=(cur+1)+' de '+segs.length;
   $('guion').textContent=v.texto;$('guion').classList.remove('dim');$('nota').textContent=v.nota?('Dirección: '+v.nota):'';
   const w=v.texto.split(/\s+/).length;$('segs').textContent='≈ '+Math.round(w/2.5)+' s';
   if(!recording)$('name').value=g.id;renderTakes();}
-$('prev').onclick=()=>{if(cur>0&&!recording){cur--;showSeg()}};$('next').onclick=()=>{if(cur<segs.length-1&&!recording){cur++;showSeg()}};
+$('prev').onclick=()=>{if(recording)return;if(mode==='ent'){if(entCur>0){entCur--;showSeg()}}else if(cur>0){cur--;showSeg()}};
+$('next').onclick=()=>{if(recording)return;if(mode==='ent'){if(entCur<entSegs.length-1){entCur++;showSeg()}}else if(cur<segs.length-1){cur++;showSeg()}};
+// ---- Training reading
+let entStarted=false,mode=store.get('voz.modo')==='ent'?'ent':'comercial',entSegs=[],entCur=0,entRondas=[],entTomas=[],entConsent=null;
+let ronda=+(store.get('voz.ronda')||1);if(![1,2,3].includes(ronda))ronda=1;
+function setMode(m){if(recording){msg('Detén la toma antes de cambiar.');return}
+  mode=m;store.set('voz.modo',m);document.body.classList.toggle('ent',m==='ent');
+  document.querySelectorAll('.modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  if(m==='ent')loadEnt().then(showSeg);else{msg('');showSeg()}}
+document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+async function loadEnt(){const j=await (await fetch('/voz/entreno')).json();
+  entSegs=j.textos;entRondas=j.rondas;entTomas=j.tomas;entConsent=j.consentimiento;
+  if(entCur>=entSegs.length)entCur=0;
+  if(!entConsent)entCur=0;
+  else if(!entStarted){entStarted=true;  // open where she left off: the first text this round still lacks
+    const i=entSegs.findIndex((g,k)=>k>0&&!entTomas.some(t=>t.id===g.id&&t.ronda===ronda));entCur=i>0?i:1}
+  const pct=Math.min(100,j.minutos/j.meta_min*100);$('entbar').firstElementChild.style.width=pct+'%';
+  $('entmin').textContent=`${j.minutos} de ${j.meta_min} min`+(j.minutos>=j.meta_min?' · ¡suficiente para entrenar!':'');
+  renderEnt()}
+function renderEnt(){
+  const c=$('consent'),heard=entTomas.find(t=>t.id==='00-consentimiento');
+  if(entConsent){c.className='ok';c.innerHTML=`<div>✓ Autorización de <b>${entConsent.nombre.replace(/</g,'&lt;')}</b>, ${entConsent.aceptado_en.slice(0,16).replace('T',' ')}, grabada en voz y aceptada por escrito.</div>`}
+  else{c.className='';c.innerHTML=`<b>Antes de empezar: autorización</b>
+    <div>1. Graba en voz alta el texto 1, «Autorización», tal cual (di la fecha de hoy). ${heard?'<span style="color:var(--ok)">✓ Grabada</span>':'<span style="color:#f2c94c">Pendiente</span>'}</div>
+    <div>2. Escribe tu nombre completo y marca que aceptas:</div>
+    <input type="text" id="cname" placeholder="Nombre completo" value="Quetzaly López">
+    <label style="text-transform:none;font-size:15px;color:var(--fg)"><input type="checkbox" id="cok"> Leí y acepto la autorización del texto 1.</label>
+    <div class="row"><button class="sec" id="cgo" ${heard?'':'disabled'}>Guardar autorización</button><span id="cmsg" class="dim"></span></div>`;
+    const go=$('cgo');if(go)go.onclick=async()=>{const r=await fetch('/voz/entreno/acepto',{method:'POST',body:JSON.stringify({nombre:$('cname').value,acepto:$('cok').checked})});
+      const j=await r.json();if(!r.ok){$('cmsg').textContent=j.error;return}await loadEnt();if(entCur===0&&entSegs.length>1)entCur=1;showSeg()}}
+  $('rondas').innerHTML=entRondas.map(r=>`<button data-r="${r.n}" class="${r.n===ronda?'on':''}">Ronda ${r.n} · ${r.intencion}</button>`).join('');
+  document.querySelectorAll('#rondas button').forEach(b=>b.onclick=()=>{if(recording)return;ronda=+b.dataset.r;store.set('voz.ronda',ronda);entStarted=false;loadEnt().then(showSeg)});
+  $('entlist').innerHTML=entSegs.map((g,i)=>{const done=n=>entTomas.find(t=>t.id===g.id&&t.ronda===n);
+    const last=entTomas.find(t=>t.id===g.id&&t.ronda===ronda)||entTomas.find(t=>t.id===g.id);
+    const rs=g.id==='00-consentimiento'?`<span class="r ${done(1)||entTomas.some(t=>t.id===g.id)?'ok':''}">${entTomas.some(t=>t.id===g.id)?'✓ grabada':'pendiente'}</span>`
+      :[1,2,3].map(n=>`<span class="r ${done(n)?'ok':''}">R${n}${done(n)?' ✓':''}</span>`).join('');
+    return `<div class="ep ${i===entCur?'cur':''}" data-i="${i}"><span class="t">${i+1}. ${g.titulo}</span>${rs}${last?`<audio controls preload="none" src="/voz/entreno/toma/${encodeURIComponent(last.file)}" style="height:32px"></audio>`:''}</div>`}).join('');
+  document.querySelectorAll('.ep .t').forEach(el=>el.onclick=()=>{if(recording)return;entCur=+el.parentElement.dataset.i;showSeg()});
+}
 async function loadScript(){try{const r=await fetch('/voz/guion');if(!r.ok)return;const t=await r.text();if(t===sig)return;sig=t;
   segs=JSON.parse(t);if(cur>=segs.length)cur=0;showSeg()}catch(e){}}
 
@@ -339,7 +413,7 @@ async function flowState(){
 }
 $('go').onclick=async()=>{const r=await fetch('/voz/procesar?voz='+$('voz').value+'&tono='+tono,{method:'POST'});
   if(!r.ok){$('fmsg').textContent='No se pudo iniciar: '+(await r.text())}flowState()};
-showTono();flowState();
+showTono();flowState();setMode(mode);
 openMic().catch(e=>msg('Toca Grabar para permitir el micrófono.'));
 loadTakes();loadScript();setInterval(loadScript,4000);
 </script></body></html>
