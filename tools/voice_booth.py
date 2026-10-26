@@ -56,7 +56,15 @@ button.sec{background:#3a2c34;color:var(--fg);font-size:15px;padding:10px 18px}
 </style></head><body><main>
 <h1>Cabina de voz <span>BeautyCita</span></h1>
 <section>
-  <div><label>Micrófono</label><select id="mic"></select></div>
+  <div><label>Micrófono</label><select id="mic"></select><div id="mickind" style="margin-top:6px;font-size:15px"></div></div>
+  <details id="lav" open><summary style="cursor:pointer;color:var(--pink);font-weight:700">Cómo poner el micrófono de solapa</summary>
+        <div style="display:grid;gap:4px;margin-top:8px;font-size:15px">
+      <div>• Al centro del pecho, a <b>un palmo de la boca</b> (15–20 cm), con la cabeza del micrófono hacia arriba.</div>
+      <div>• Por fuera de la ropa o asomado del escote: si queda bajo la tela, la voz sale opaca y se oye el roce.</div>
+      <div>• Nada que lo toque: collares, aretes largos, cabello, la mano. Cada roce se graba.</div>
+      <div>• Haz un pequeño lazo con el cable debajo del clip y pégalo con cinta a la ropa: así el cable no jala ni hace ruido al moverte.</div>
+      <div>• Al leer, gira la cabeza lo menos posible; el micrófono se queda donde está, tu boca se mueve.</div>
+    </div></details>
   <div><label>Nombre de la toma</label><input id="name" value="toma"></div>
   <div><label>Nivel (verde bien · amarillo fuerte · rojo se satura)</label><div id="meter"><div id="bar"></div><div id="peak"></div></div></div>
   <div id="room">
@@ -96,18 +104,49 @@ async function openMic(id){
       class T extends AudioWorkletProcessor{process(i){if(i[0]&&i[0][0])this.port.postMessage(i[0][0].slice());return true}}
       registerProcessor('tap',T)`],{type:'text/javascript'})));}
   if(src)src.disconnect();
+  stream.getAudioTracks()[0].onended=()=>{
+    if(recording)$('rec').onclick();   // stop and save what was recorded so far
+    $('mickind').innerHTML='<span style="color:var(--bad);font-weight:700">⚠ Se desconectó el micrófono. Vuelve a conectarlo; la página lo toma sola.</span>';
+  };
   src=ctx.createMediaStreamSource(stream);
   if(!node){node=new AudioWorkletNode(ctx,'tap');node.port.onmessage=e=>onBlock(e.data);}
   src.connect(node);
   if(!an){an=ctx.createAnalyser();an.fftSize=4096;an.smoothingTimeConstant=0;fbuf=new Float32Array(an.frequencyBinCount)}
   src.connect(an);
-  await listMics();
+  const devs=await listMics();
+  if(id)store.set('voz.mic',id);
+  else{const best=pickMic(devs);const cur=stream.getAudioTracks()[0].getSettings().deviceId;
+    if(best&&best!==cur)return openMic(best);}
 }
+// Far-field mics (the Owl, laptop arrays, webcams) record the room; the USB
+// lavalier records the voice. Prefer the lavalier and remember the choice.
+const FAR=/owl|array|matriz|webcam|c[aá]mara|camera|realtek|intel|internal|interno|integrad|built-in|predeterminado|default|comunicaciones|communications/i;
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+function micLabel(){return stream?(stream.getAudioTracks()[0].label||''):''}
+function isLav(){return !FAR.test(micLabel())}
 async function listMics(){
   const cur=stream&&stream.getAudioTracks()[0].getSettings().deviceId;
   const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');
   $('mic').innerHTML=devs.map(d=>`<option value="${d.deviceId}" ${d.deviceId===cur?'selected':''}>${d.label||'Micrófono'}</option>`).join('');
+  const lab=micLabel();
+  $('mickind').innerHTML=!stream?'':isLav()
+    ?`<span style="color:var(--ok)">✓ Grabando con: ${lab.replace(/</g,'&lt;')}</span>`
+    :`<span style="color:var(--bad);font-weight:700">⚠ Esto parece un micrófono lejano (${lab.replace(/</g,'&lt;')}). Conecta el de solapa y elígelo en la lista.</span>`;
+  return devs;
 }
+function pickMic(devs){
+  const saved=store.get('voz.mic');
+  if(saved&&devs.some(d=>d.deviceId===saved))return saved;
+  const lav=devs.find(d=>d.label&&d.deviceId!=='default'&&d.deviceId!=='communications'&&!FAR.test(d.label));
+  return lav?lav.deviceId:null;
+}
+navigator.mediaDevices.addEventListener('devicechange',async()=>{
+  const dead=stream&&stream.getAudioTracks()[0].readyState==='ended';
+  const devs=dead?(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput'):await listMics();
+  // the mic came back, or a lavalier was plugged in after a far mic opened
+  if(!recording&&stream&&(dead||!isLav())){const id=pickMic(devs);
+    if(id||dead)openMic(id||undefined).then(()=>msg('Micrófono listo.')).catch(e=>msg(e.message))}
+});
 // ---- Room analysis: same math as the offline check that measured Q's first takes
 // (echo ~0.8 s, noise -57 dBFS, normal tone, no hum). 20 ms frames.
 let floorC,an,fbuf,acc=[],tick=0,frames=[],spec=null,specN=0,qspec=null,qN=0,decays=[],clips=0,prevSnap=null;
@@ -150,7 +189,7 @@ function renderRoom(){
   if(isNaN(st.echo))chip('Eco','midiendo…','');
   else{const e=st.echo,c=e<0.35?'g':e<0.6?'y':'r';chip('Eco',e.toFixed(2)+' s',c);
     if(c!=='g')tips.push([c==='r'?3:2,`<b>Eco${c==='r'?' alto':''}:</b> la voz rebota en paredes duras (por eso suena hueca o metálica). Pon cobijas, edredones o almohadas en las paredes más cercanas y detrás de ti; una toalla o cobija sobre la mesa también ayuda. Lo más rápido: graba dentro de un clóset con ropa colgada, o en la recámara en vez de un cuarto vacío.`]);
-    if(e>=0.5)tips.push([2,'<b>Acércate al micrófono:</b> a unos 20–30 cm del Owl. Mientras más cerca, más voz directa y menos cuarto. Ponlo frente a ti, no a un lado ni del otro lado de la mesa.'])}
+    if(e>=0.5)tips.push([2,isLav()?'<b>Sube el micrófono:</b> que quede a un palmo de la boca (15–20 cm), al centro del pecho, no en el cuello de la blusa ni de lado. Con el de solapa bien puesto el eco casi desaparece.':'<b>Usa el micrófono de solapa:</b> estás grabando con un micrófono lejano, por eso se oye el cuarto. Conecta el de solapa y elígelo arriba.'])}
   // noise
   {const f=st.floor,c=f<-60?'g':f<-50?'y':'r';chip('Ruido de fondo',f.toFixed(0)+' dB',c);
     if(c!=='g')tips.push([c==='r'?3:1,`<b>Ruido de fondo${c==='r'?' alto':''}:</b> apaga ventilador, aire acondicionado y refrigerador cercano si puedes; cierra puertas y ventanas; aleja la laptop del micrófono y pon el celular en silencio.`])}
@@ -158,14 +197,14 @@ function renderRoom(){
   {const v=st.voice;if(isNaN(v))chip('Volumen de voz','—','');else{
     const c=st.clips>0?'r':v<-34?'y':v>-12?'y':'g';chip('Volumen de voz',v.toFixed(0)+' dB'+(st.clips?' · satura':''),c);
     if(st.clips)tips.push([3,'<b>Se satura:</b> aléjate un poco o baja el volumen del micrófono en Windows (Configuración › Sonido › Entrada).']);
-    else if(v<-34)tips.push([2,'<b>Voz baja:</b> acércate al micrófono o sube el volumen de entrada en Windows (Configuración › Sonido › Entrada).'])}}
+    else if(v<-34)tips.push([2,isLav()?'<b>Voz baja:</b> los de solapa USB suelen venir bajos. Sube el volumen de entrada en Windows (Configuración › Sonido › Entrada › el micrófono de solapa) hasta que la barra quede verde al hablar normal.':'<b>Voz baja:</b> acércate al micrófono o sube el volumen de entrada en Windows (Configuración › Sonido › Entrada).'])}}
   // tone
   if(st.low!==undefined){let c='g',t='normal';
     if(st.low<0){c='y';t='delgada'}else if(st.low>10){c='y';t='retumba'}else if(st.pres<-20){c='y';t='opaca'}
     chip('Tono',t,c);
     if(t==='delgada')tips.push([2,'<b>Voz delgada:</b> estás lejos o de lado al micrófono. Háblale de frente y más cerca.']);
     if(t==='retumba')tips.push([2,'<b>Retumba:</b> aléjate de las esquinas del cuarto y del micrófono unos centímetros.']);
-    if(t==='opaca')tips.push([1,'<b>Voz opaca:</b> que nada tape el micrófono (tela, laptop, mano) y háblale de frente.'])}
+    if(t==='opaca')tips.push([1,isLav()?'<b>Voz opaca:</b> el micrófono quedó bajo la ropa o mirando hacia abajo. Sácalo por fuera de la tela con la cabeza hacia arriba.':'<b>Voz opaca:</b> que nada tape el micrófono (tela, laptop, mano) y háblale de frente.'])}
   // hum
   if(st.hum!==undefined&&st.hum>6){chip('Zumbido','sí','r');tips.push([3,'<b>Zumbido eléctrico:</b> desconecta el cargador de la laptop mientras grabas y aleja el cable del micrófono de extensiones y cables de corriente.'])}
   if(!tips.length)tips.push([0,'<b>¡Sala lista!</b> Todo en verde: graba con confianza.']);
@@ -199,12 +238,20 @@ $('rec').onclick=async()=>{
   await ctx.resume();
   if(!recording){chunks=[];t0=performance.now();recording=true;$('rec').textContent='■ Detener';$('rec').classList.add('on');msg('Grabando…');return}
   recording=false;$('rec').textContent='● Grabar';$('rec').classList.remove('on');
-  const blob=wav(chunks,ctx.sampleRate);msg('Guardando…');
-  try{const r=await fetch('/voz/save?name='+encodeURIComponent($('name').value||'toma'),{method:'POST',body:blob});
-    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);msg('Guardada: '+j.file);loadTakes()}
-  catch(e){msg('NO se guardó ('+e.message+'). Vuelve a intentar.')}
+  saveTake(wav(chunks,ctx.sampleRate),$('name').value||'toma');
 };
-$('mic').onchange=e=>openMic(e.target.value).catch(err=>msg(err.message));
+async function saveTake(blob,name){
+  msg('Guardando…');
+  try{const r=await fetch('/voz/save?name='+encodeURIComponent(name),{method:'POST',body:blob});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);msg('Guardada: '+j.file);loadTakes()}
+  catch(e){
+    // keep the take in memory: one click retries it, nothing has to be re-read
+    $('msg').innerHTML='';const b=document.createElement('button');b.className='sec';b.textContent='↻ Reintentar guardar';
+    b.onclick=()=>saveTake(blob,name);$('msg').append('NO se guardó ('+e.message+'). ',b)}
+}
+window.addEventListener('beforeunload',e=>{if(recording){e.preventDefault();e.returnValue=''}});
+$('mic').onchange=e=>{if(recording){msg('Detén la toma antes de cambiar de micrófono.');listMics();return}
+  openMic(e.target.value).catch(err=>msg(err.message))};
 async function loadTakes(){
   const j=await (await fetch('/voz/takes')).json();
   $('takes').innerHTML=j.length?j.map(f=>`<div><b>${f.file}</b><span class="dim">${f.seconds}s</span><audio controls preload="none" src="/voz/take/${encodeURIComponent(f.file)}"></audio></div>`).join(''):'Ninguna todavía.';
