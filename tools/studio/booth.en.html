@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice booth (English trial) · BeautyCita</title>
+<style>
+:root{--bg:#1b1418;--panel:#271d23;--fg:#f6eef2;--dim:#b7a3ad;--pink:#ff5fa2;--ok:#5fd38a;--bad:#ff4d4d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px;display:grid;gap:16px}
+h1{margin:0;font-size:22px}h1 span{color:var(--pink)}
+section{background:var(--panel);border-radius:12px;padding:16px;display:grid;gap:12px}
+label{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+select,input{width:100%;padding:10px;border-radius:8px;border:1px solid #4a3a43;background:#120d10;color:var(--fg);font-size:16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+button{border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:700;cursor:pointer}
+#rec{background:var(--pink);color:#fff;min-width:200px}#rec.on{background:var(--bad);animation:p 1s infinite}
+@keyframes p{50%{opacity:.7}}
+button.sec{background:#3a2c34;color:var(--fg);font-size:15px;padding:10px 18px}
+#meter{height:22px;background:#120d10;border-radius:6px;overflow:hidden;position:relative}
+#bar{height:100%;width:0;background:var(--ok);transition:width .05s}
+#peak{position:absolute;top:0;bottom:0;width:3px;background:#fff}
+#win{background:#120d10;border:2px solid var(--pink);border-radius:12px;padding:18px;display:grid;gap:12px}
+#guion{white-space:pre-wrap;font-size:30px;line-height:1.45}
+#nota{color:#f2c94c;font-size:15px;font-style:italic}
+#segt{color:var(--pink);font-size:18px}
+.seg{display:inline-flex;background:#271d23;border-radius:999px;padding:3px}.seg button{background:transparent;color:var(--dim);font-size:14px;padding:7px 16px}.seg button.on{background:var(--pink);color:#fff}
+.grp{padding:8px 0;border-bottom:1px solid #3a2c34}.grp h4{margin:0 0 4px;font-size:14px;color:var(--dim)}.grp h4.cur{color:var(--pink)}
+#takes .tk{display:flex;gap:10px;align-items:center;padding:4px 0;flex-wrap:wrap}#takes .tk.win b{color:var(--ok)}
+button.star{background:#3a2c34;color:var(--fg);font-size:13px;padding:6px 12px}button.star.on{background:var(--ok);color:#120d10}
+a.edit{color:var(--pink);font-weight:700;text-decoration:none}
+.modes{display:flex;gap:8px}.modes button{flex:1;background:#271d23;color:var(--dim);font-size:16px;padding:12px}.modes button.on{background:var(--pink);color:#fff}
+#ent{display:none}body.ent #ent{display:grid}body.ent #flow,body.ent #takesec,body.ent #tonos{display:none}
+#entbar{height:16px;background:var(--field,#120d10);border-radius:8px;overflow:hidden}#entbar div{height:100%;background:var(--ok);width:0}
+.rondas{display:flex;gap:8px;flex-wrap:wrap}.rondas button{background:#3a2c34;color:var(--fg);font-size:14px;padding:8px 14px}.rondas button.on{background:var(--pink)}
+.ep{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #3a2c34;flex-wrap:wrap}.ep .t{flex:1;min-width:160px}.ep.cur .t{color:var(--pink);font-weight:700}
+.ep .r{font-size:13px;padding:2px 8px;border-radius:999px;background:#3a2c34;color:var(--dim)}.ep .r.ok{background:#173a26;color:var(--ok)}
+#consent{border:2px solid #f2c94c;border-radius:10px;padding:12px;display:grid;gap:8px}#consent.ok{border-color:var(--ok)}
+#consent input[type=text]{width:100%}
+#room{background:#120d10;border-radius:10px;padding:12px;display:grid;gap:10px}
+#chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.chip{border-radius:8px;padding:8px 10px;background:#271d23;border-left:5px solid #555}
+.chip b{display:block;font-size:13px;color:var(--dim);font-weight:600}.chip span{font-size:17px;font-weight:700}
+.chip.g{border-color:var(--ok)}.chip.y{border-color:#f2c94c}.chip.r{border-color:var(--bad)}
+#tips div{padding:6px 0 6px 10px;border-left:3px solid var(--pink);margin:4px 0;font-size:16px}
+#tips div b{color:var(--pink)}
+#time{font:600 28px ui-monospace,monospace}
+#mt{background:#120d10;border-radius:10px;padding:14px;display:none;gap:10px}#mt.on{display:grid}
+#mtstep{font-size:22px;font-weight:700}#mtstep .big{color:var(--pink);font:700 30px ui-monospace,monospace}
+#mtv{font-size:24px;font-weight:800;padding:10px 14px;border-radius:8px}#mtv.g{background:#173a26;color:var(--ok)}#mtv.y{background:#3a3217;color:#f2c94c}#mtv.r{background:#3a1717;color:var(--bad)}
+#mtgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:640px){#mtgrid{grid-template-columns:1fr}}
+#takes div{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #3a2c34;flex-wrap:wrap}
+#takes audio{height:36px}#fout a{color:var(--pink);font-weight:600}#fout div{padding:4px 0}#fout .warn{color:#f2c94c}.dim{color:var(--dim)}#msg{min-height:1.4em}
+</style></head><body class="ent"><main>
+<h1>Voice booth <span>BeautyCita</span> · English trial</h1>
+<div style="background:#1d2a3a;border-left:4px solid #6aa8ff;border-radius:8px;padding:10px 12px;font-size:15px">This is <b>your English training session</b>, kept apart from Quetzaly's Spanish studio: its own recordings, its own model.</div>
+<section>
+  <div><label>Microphone</label><select id="mic"></select><div id="mickind" style="margin-top:6px;font-size:15px"></div></div>
+  <details id="lav"><summary style="cursor:pointer;color:var(--pink);font-weight:700">How to wear the lavalier</summary>
+    <div style="display:grid;gap:4px;margin-top:8px;font-size:15px">
+      <div>• Center of the chest, <b>a hand's width below your chin</b> (15–20 cm), mic head pointing up.</div>
+      <div>• Outside your clothing: under fabric the voice turns dull and you hear rubbing.</div>
+      <div>• Nothing touching it: necklaces, collar, hair, your hand. Every brush is recorded.</div>
+      <div>• Make a small loop of cable under the clip and tape it to your shirt so the cable doesn't tug or rustle.</div>
+      <div>• While reading, keep your head still; the mic stays put, your mouth moves.</div>
+    </div></details>
+  <div><label>Level (green good · yellow loud · red clipping)</label><div id="meter"><div id="bar"></div><div id="peak"></div></div></div>
+  <div id="room">
+    <div class="row" style="justify-content:space-between"><label>Room quality (live)</label>
+      <button class="sec" id="rreset" style="padding:6px 14px;font-size:13px">↻ Measure again</button></div>
+    <div id="chips"></div>
+    <div id="tips"></div>
+    <div id="rprev" class="dim" style="font-size:13px"></div>
+  </div>
+  <div id="win">
+    <div class="row" style="justify-content:space-between"><b id="segt"></b><span id="segn" class="dim"></span></div>
+    <div id="guion" class="dim">(loading…)</div>
+    <div id="nota"></div>
+    <div class="row"><button class="sec" id="prev">◀ Previous</button><button class="sec" id="next">Next ▶</button><span id="segs" class="dim"></span></div>
+  </div>
+  <div class="row"><button id="rec">● Record</button><span id="time">0:00</span><span id="msg" class="dim"></span></div>
+</section>
+<section id="ent">
+  <div class="row" style="justify-content:space-between"><label>Training reading</label><a class="edit" href="/voz/entrenar/">Training →</a></div>
+  <div class="dim">These recordings teach a model to sound like you. Read every text in all three rounds: the same sentence with a different intention is what makes the synthetic voice sound natural.</div>
+  <div id="consent"></div>
+  <div><div class="row" style="justify-content:space-between"><span style="color:var(--dim);font-size:13px;text-transform:uppercase">Progress</span><b id="entmin"></b></div><div id="entbar"><div></div></div></div>
+  <div class="rondas" id="rondas"></div>
+  <div id="entlist"></div>
+</section>
+</main>
+<script>
+// English trial booth (BC 2026-10-26): booth.html's training mode, in English.
+// Served instead of booth.html when the folder's config.json says idioma=en.
+let segs=[],cur=0,testing=false;
+
+const $=id=>document.getElementById(id);
+let ctx,src,node,stream,chunks=[],recording=false,t0=0,peakHold=0;
+function msg(t){$('msg').textContent=t}
+async function openMic(id){
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  // Raw voice: no browser echo-cancel/denoise/auto-gain; we clean up afterwards.
+  stream=await navigator.mediaDevices.getUserMedia({audio:{deviceId:id?{exact:id}:undefined,
+    echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
+  if(!ctx){ctx=new AudioContext({sampleRate:48000});
+    await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([`
+      class T extends AudioWorkletProcessor{process(i){if(i[0]&&i[0][0])this.port.postMessage(i[0][0].slice());return true}}
+      registerProcessor('tap',T)`],{type:'text/javascript'})));}
+  if(src)src.disconnect();
+  stream.getAudioTracks()[0].onended=()=>{
+    if(recording)$('rec').onclick();   // stop and save what was recorded so far
+    $('mickind').innerHTML='<span style="color:var(--bad);font-weight:700">⚠ The microphone disconnected. Plug it back in; the page picks it up by itself.</span>';
+  };
+  src=ctx.createMediaStreamSource(stream);
+  if(!node){node=new AudioWorkletNode(ctx,'tap');node.port.onmessage=e=>onBlock(e.data);}
+  src.connect(node);
+  if(!an){an=ctx.createAnalyser();an.fftSize=4096;an.smoothingTimeConstant=0;fbuf=new Float32Array(an.frequencyBinCount)}
+  src.connect(an);
+  const devs=await listMics();
+  if(id)store.set('voz.mic',id);
+  else{const best=pickMic(devs);const cur=stream.getAudioTracks()[0].getSettings().deviceId;
+    if(best&&best!==cur)return openMic(best);}
+}
+// Far-field mics (the Owl, laptop arrays, webcams) record the room; the USB
+// lavalier records the voice. Prefer the lavalier and remember the choice.
+const FAR=/owl|array|matriz|webcam|c[aá]mara|camera|realtek|intel|internal|interno|integrad|built-in|predeterminado|default|comunicaciones|communications/i;
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+function micLabel(){return stream?(stream.getAudioTracks()[0].label||''):''}
+function isLav(){return !FAR.test(micLabel())}
+async function listMics(){
+  const cur=stream&&stream.getAudioTracks()[0].getSettings().deviceId;
+  const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');
+  $('mic').innerHTML=devs.map(d=>`<option value="${d.deviceId}" ${d.deviceId===cur?'selected':''}>${d.label||'Microphone'}</option>`).join('');
+  const lab=micLabel();
+  $('mickind').innerHTML=!stream?'':isLav()
+    ?`<span style="color:var(--ok)">✓ Recording with: ${lab.replace(/</g,'&lt;')}</span>`
+    :`<span style="color:var(--bad);font-weight:700">⚠ This looks like a distant mic (${lab.replace(/</g,'&lt;')}). Plug in the lavalier and pick it in the list.</span>`;
+  return devs;
+}
+function pickMic(devs){
+  const saved=store.get('voz.mic');
+  if(saved&&devs.some(d=>d.deviceId===saved))return saved;
+  const lav=devs.find(d=>d.label&&d.deviceId!=='default'&&d.deviceId!=='communications'&&!FAR.test(d.label));
+  return lav?lav.deviceId:null;
+}
+navigator.mediaDevices.addEventListener('devicechange',async()=>{
+  const dead=stream&&stream.getAudioTracks()[0].readyState==='ended';
+  const devs=dead?(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput'):await listMics();
+  // the mic came back, or a lavalier was plugged in after a far mic opened
+  if(!recording&&stream&&(dead||!isLav())){const id=pickMic(devs);
+    if(id||dead)openMic(id||undefined).then(()=>msg('Microphone ready.')).catch(e=>msg(e.message))}
+});
+// ---- Room analysis: same math as the offline check that measured Q's first takes
+// (echo ~0.8 s, noise -57 dBFS, normal tone, no hum). 20 ms frames.
+let floorC,an,fbuf,acc=[],tick=0,frames=[],spec=null,specN=0,qspec=null,qN=0,decays=[],clips=0,prevSnap=null;
+const FR=960;
+function roomReset(){if(frames.length>250)prevSnap=roomStats();frames=[];f5=[];acc5=[];spec=null;specN=0;qspec=null;qN=0;decays=[];clips=0;renderRoom()}
+function pct(a,p){if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p*s.length))]}
+function med(a){return pct(a,0.5)}
+// Echo: ring-out from clean word endings on 5 ms frames — the same rule as the
+// server's Prueba de micrófono (mictest.py echo_s), calibrated on the 10-23 Owl
+// take (0.42 s) and a voice with no room (0.14 s). The 20 ms rule it replaces
+// read 2.9 s on that clean voice.
+let f5=[],acc5=[];
+function frame5(dbv){
+  f5.push(dbv);if(f5.length>1400)f5.shift();
+  const n=f5.length,i=n-101;if(i<4||floorC===undefined)return;
+  const sm=k=>(f5[k-1]+f5[k]+f5[k+1])/3,p=sm(i);
+  if(p<=floorC+30)return;
+  for(let k=i-4;k<=i+4;k++)if(sm(k)>p)return;
+  const run=[p];for(let k=1;k<100;k++){const v=sm(i+k);if(v-run[run.length-1]>3)return;run.push(v);if(v<p-25)break}
+  if(run[run.length-1]>=p-25)return;
+  const xs=[],ys=[];run.forEach((v,k)=>{if(v<=p-5&&v>=p-25){xs.push(k*0.005);ys.push(v)}});
+  if(xs.length<3)return;
+  const mx=xs.reduce((a,b)=>a+b)/xs.length,my=ys.reduce((a,b)=>a+b)/ys.length;
+  let nu=0,de=0;xs.forEach((x,j)=>{nu+=(x-mx)*(ys[j]-my);de+=(x-mx)**2});
+  if(nu<0){decays.push(nu/de);if(decays.length>400)decays.shift()}
+}
+function frameIn(dbv){
+  frames.push(dbv);if(frames.length>1500)frames.shift();            // last 30 s
+  tick++;const n=frames.length;if(n<40)return;
+  if(tick%25===0||floorC===undefined)floorC=pct(frames,0.1);const floor=floorC;
+  if(an&&tick%5===0){an.getFloatFrequencyData(fbuf);
+    const lin=Array.from(fbuf,v=>Math.pow(10,v/10));
+    if(dbv>floor+15){if(!spec)spec=new Float64Array(lin.length);lin.forEach((v,j)=>spec[j]+=v);specN++}
+    else if(dbv<floor+3){if(!qspec)qspec=new Float64Array(lin.length);lin.forEach((v,j)=>qspec[j]+=v);qN++}}
+  if(tick%50===0)renderRoom();                                        // once a second
+}
+function band(sp,lo,hi){const hz=ctx.sampleRate/an.fftSize;let s=0,c=0;for(let j=Math.ceil(lo/hz);j<hi/hz;j++){s+=sp[j];c++}return 10*Math.log10(s/c+1e-20)}
+function roomStats(){
+  const st={};const sp=frames.filter(v=>v>pct(frames,0.1)+15);
+  st.floor=pct(frames,0.1);st.voice=sp.length>50?med(sp):NaN;st.clips=clips;
+  st.echo=decays.length>=8?-60/med(decays):NaN;
+  if(specN>=20){st.low=band(spec,100,300)-band(spec,300,2000);st.pres=band(spec,2000,5000)-band(spec,300,2000)}
+  if(qN>=20){const hz=ctx.sampleRate/an.fftSize;let worst=-99;
+    for(const h of [60,120,180]){const j=Math.round(h/hz);let nb=0;for(const k of [-8,-7,-6,-5,-4,4,5,6,7,8])nb+=qspec[j+k];nb/=10;
+      worst=Math.max(worst,10*Math.log10(Math.max(qspec[j-1],qspec[j],qspec[j+1])/nb))}st.hum=worst}
+  return st;
+}
+function renderRoom(){
+  const st=roomStats(),chips=[],tips=[];
+  const chip=(name,val,c)=>chips.push(`<div class="chip ${c}"><b>${name}</b><span>${val}</span></div>`);
+  if(frames.length<250){$('chips').innerHTML='';$('tips').innerHTML='<div class="dim" style="border:0">Talk normally for about 10 seconds (read the window) to measure the room…</div>';return}
+  // echo
+  if(isNaN(st.echo))chip('Echo','measuring…','');
+  else{const e=st.echo,c=e<0.25?'g':e<0.4?'y':'r';chip('Echo',e.toFixed(2)+' s',c);
+    if(c!=='g')tips.push([c==='r'?3:2,`<b>${c==='r'?'High echo':'Echo'}:</b> your voice bounces off hard walls (that's the hollow, metallic sound). Hang blankets, comforters or pillows on the nearest walls and behind you; a towel or blanket on the desk helps too. Quickest fix: record in a closet full of clothes, or a bedroom instead of an empty room.`]);
+    if(e>=0.4)tips.push([2,isLav()?'<b>Move the mic up:</b> a hand\'s width from your mouth (15–20 cm), center of the chest, not on the collar or to one side. With the lavalier placed right, the echo nearly disappears.':'<b>Use the lavalier:</b> you are recording with a distant mic, so the room is heard. Plug in the lavalier and pick it above.'])}
+  // noise
+  {const f=st.floor,c=f<-60?'g':f<-50?'y':'r';chip('Background noise',f.toFixed(0)+' dB',c);
+    if(c!=='g')tips.push([c==='r'?3:1,`<b>${c==='r'?'High background noise':'Background noise'}:</b> turn off fans, the AC and a nearby fridge if you can; close doors and windows; move the laptop away from the mic and silence your phone.`])}
+  // level
+  {const v=st.voice;if(isNaN(v))chip('Voice level','—','');else{
+    const c=st.clips>0?'r':v<-34?'y':v>-12?'y':'g';chip('Voice level',v.toFixed(0)+' dB'+(st.clips?' · clipping':''),c);
+    if(st.clips)tips.push([3,'<b>Clipping:</b> move back a little or lower the mic\'s input volume.']);
+    else if(v<-34)tips.push([2,isLav()?'<b>Low voice:</b> lavaliers often come in quiet. Raise the mic\'s input volume until the bar sits in the green when you talk normally.':'<b>Low voice:</b> get closer to the mic or raise its input volume.'])}}
+  // tone
+  if(st.low!==undefined){let c='g',t='normal';
+    if(st.low<0){c='y';t='thin'}else if(st.low>10){c='y';t='boomy'}else if(st.pres<-20){c='y';t='dull'}
+    chip('Tone',t,c);
+    if(t==='thin')tips.push([2,'<b>Thin voice:</b> you are far from or beside the mic. Face it and get closer.']);
+    if(t==='boomy')tips.push([2,'<b>Boomy:</b> move away from room corners, and a few centimeters back from the mic.']);
+    if(t==='dull')tips.push([1,isLav()?'<b>Dull voice:</b> the mic is under clothing or pointing down. Bring it outside the fabric, head pointing up.':'<b>Dull voice:</b> make sure nothing covers the mic (fabric, laptop, hand) and face it.'])}
+  // hum
+  if(st.hum!==undefined&&st.hum>6){chip('Hum','yes','r');tips.push([3,'<b>Electrical hum:</b> unplug the laptop charger while recording and keep the mic cable away from power strips and power cords.'])}
+  if(!tips.length)tips.push([0,'<b>Room ready!</b> All green: record with confidence.']);
+  tips.sort((a,b)=>b[0]-a[0]);
+  $('chips').innerHTML=chips.join('');$('tips').innerHTML=tips.map(t=>'<div>'+t[1]+'</div>').join('');
+  if(prevSnap&&!isNaN(prevSnap.echo)&&!isNaN(st.echo))$('rprev').textContent=`Before: echo ${prevSnap.echo.toFixed(2)} s, noise ${prevSnap.floor.toFixed(0)} dB → now: echo ${st.echo.toFixed(2)} s, noise ${st.floor.toFixed(0)} dB`;
+}
+$('rreset').onclick=roomReset;
+function onBlock(b){
+  for(const v of b){if(Math.abs(v)>0.98)clips++;acc.push(v*v);acc5.push(v*v);
+    if(acc5.length>=240){frame5(10*Math.log10(acc5.reduce((a,c)=>a+c,0)/240+1e-12));acc5=[]}
+    if(acc.length>=FR){frameIn(10*Math.log10(acc.reduce((a,c)=>a+c,0)/acc.length+1e-12));acc=[]}}
+  let pk=0;for(const s of b){const a=Math.abs(s);if(a>pk)pk=a}
+  peakHold=Math.max(pk,peakHold*0.97);
+  const db=20*Math.log10(Math.max(pk,1e-6)),w=Math.max(0,Math.min(100,(db+60)/60*100));
+  $('bar').style.width=w+'%';$('bar').style.background=db>-1?'var(--bad)':db>-6?'#f2c94c':'var(--ok)';
+  $('peak').style.left=Math.max(0,Math.min(99,(20*Math.log10(Math.max(peakHold,1e-6))+60)/60*100))+'%';
+  if(recording){chunks.push(b);const s=Math.floor((performance.now()-t0)/1000);$('time').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+}
+function wav(blocks,rate){
+  const n=blocks.reduce((a,b)=>a+b.length,0),buf=new ArrayBuffer(44+n*3),v=new DataView(buf);
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*3,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);
+  v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*3,true);v.setUint16(32,3,true);v.setUint16(34,24,true);
+  w(36,'data');v.setUint32(40,n*3,true);let o=44;
+  for(const b of blocks)for(const s of b){let x=Math.round(Math.max(-1,Math.min(1,s))*8388607);
+    v.setUint8(o,x&255);v.setUint8(o+1,(x>>8)&255);v.setUint8(o+2,(x>>16)&255);o+=3}
+  return new Blob([buf],{type:'audio/wav'});
+}
+$('rec').onclick=async()=>{
+  if(testing)return;
+  if(!ctx){try{await openMic()}catch(e){msg('Could not open the microphone: '+e.message);return}}
+  await ctx.resume();
+  if(!recording){chunks=[];t0=performance.now();recording=true;$('rec').textContent='■ Stop';$('rec').classList.add('on');msg('Recording…');return}
+  recording=false;$('rec').textContent='● Record';$('rec').classList.remove('on');
+  if(mode==='ent')saveEnt(wav(chunks,ctx.sampleRate),entSegs[entCur].id,ronda);
+};
+async function saveEnt(blob,id,rn){
+  msg('Saving…');
+  try{const r=await fetch('/voz/entreno/save?id='+encodeURIComponent(id)+'&ronda='+rn,{method:'POST',body:blob});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);msg('Saved: '+j.file);await loadEnt();
+    if(id!=='00-consentimiento'&&entCur<entSegs.length-1){entCur++;showSeg()}}
+  catch(e){$('msg').innerHTML='';const b=document.createElement('button');b.className='sec';b.textContent='↻ Retry saving';
+    b.onclick=()=>saveEnt(blob,id,rn);$('msg').append('NOT saved ('+e.message+'). ',b)}
+}
+window.addEventListener('beforeunload',e=>{if(recording){e.preventDefault();e.returnValue=''}});
+$('mic').onchange=e=>{if(recording){msg('Stop recording before switching microphones.');listMics();return}
+  openMic(e.target.value).catch(err=>msg(err.message))};
+function showSeg(){
+  if(mode==='ent'){if(!entSegs.length)return;const g=entSegs[entCur];
+    $('segt').textContent=g.titulo+(g.id==='00-consentimiento'?'':' · round '+ronda);$('segn').textContent=(entCur+1)+' of '+entSegs.length;
+    $('guion').textContent=g.texto;$('guion').classList.remove('dim');
+    $('nota').textContent='How to read it: '+g.estilo+(g.id==='00-consentimiento'?'':' · This round\'s intention: '+(entRondas.find(r=>r.n===ronda)||{}).intencion);
+    const w=g.texto.split(/\s+/).length;$('segs').textContent='≈ '+Math.round(w/2.5)+' s';
+    const locked=g.id!=='00-consentimiento'&&!entConsent;$('rec').disabled=locked||testing;
+    if(locked)msg('First: record the authorization (text 1) and accept it in writing below.');
+    renderEnt();return}}
+$('prev').onclick=()=>{if(recording)return;if(mode==='ent'){if(entCur>0){entCur--;showSeg()}}else if(cur>0){cur--;showSeg()}};
+$('next').onclick=()=>{if(recording)return;if(mode==='ent'){if(entCur<entSegs.length-1){entCur++;showSeg()}}else if(cur<segs.length-1){cur++;showSeg()}};
+// ---- Training reading
+let entStarted=false,mode=store.get('voz.modo')==='ent'?'ent':'comercial',entSegs=[],entCur=0,entRondas=[],entTomas=[],entConsent=null;
+let ronda=+(store.get('voz.ronda')||1);if(![1,2,3].includes(ronda))ronda=1;
+function setMode(m){if(recording){msg('Stop recording before switching.');return}
+  mode=m;store.set('voz.modo',m);document.body.classList.toggle('ent',m==='ent');
+  document.querySelectorAll('.modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  if(m==='ent')loadEnt().then(showSeg);else{msg('');showSeg()}}
+document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+async function loadEnt(){const j=await (await fetch('/voz/entreno')).json();
+  entSegs=j.textos;entRondas=j.rondas;entTomas=j.tomas;entConsent=j.consentimiento;
+  if(entCur>=entSegs.length)entCur=0;
+  if(!entConsent)entCur=0;
+  else if(!entStarted){entStarted=true;  // open where she left off: the first text this round still lacks
+    const i=entSegs.findIndex((g,k)=>k>0&&!entTomas.some(t=>t.id===g.id&&t.ronda===ronda));entCur=i>0?i:1}
+  const pct=Math.min(100,j.minutos/j.meta_min*100);$('entbar').firstElementChild.style.width=pct+'%';
+  $('entmin').textContent=`${j.minutos} of ${j.meta_min} min`+(j.minutos>=j.meta_min?' · enough to train!':'');
+  renderEnt()}
+function renderEnt(){
+  const c=$('consent'),heard=entTomas.find(t=>t.id==='00-consentimiento');
+  if(entConsent){c.className='ok';c.innerHTML=`<div>✓ Authorization by <b>${entConsent.nombre.replace(/</g,'&lt;')}</b>, ${entConsent.aceptado_en.slice(0,16).replace('T',' ')}, recorded aloud and accepted in writing.</div>`}
+  else{c.className='';c.innerHTML=`<b>Before you start: authorization</b>
+    <div>1. Record text 1, "Authorization", aloud as written (say your full name and today's date). ${heard?'<span style="color:var(--ok)">✓ Recorded</span>':'<span style="color:#f2c94c">Pending</span>'}</div>
+    <div>2. Type your full name and tick that you accept:</div>
+    <input type="text" id="cname" placeholder="Full name" value="">
+    <label style="text-transform:none;font-size:15px;color:var(--fg)"><input type="checkbox" id="cok"> I have read and accept the authorization in text 1.</label>
+    <div class="row"><button class="sec" id="cgo" ${heard?'':'disabled'}>Save authorization</button><span id="cmsg" class="dim"></span></div>`;
+    const go=$('cgo');if(go)go.onclick=async()=>{const r=await fetch('/voz/entreno/acepto',{method:'POST',body:JSON.stringify({nombre:$('cname').value,acepto:$('cok').checked})});
+      const j=await r.json();if(!r.ok){$('cmsg').textContent=j.error;return}await loadEnt();if(entCur===0&&entSegs.length>1)entCur=1;showSeg()}}
+  $('rondas').innerHTML=entRondas.map(r=>`<button data-r="${r.n}" class="${r.n===ronda?'on':''}">Round ${r.n} · ${r.intencion}</button>`).join('');
+  document.querySelectorAll('#rondas button').forEach(b=>b.onclick=()=>{if(recording)return;ronda=+b.dataset.r;store.set('voz.ronda',ronda);entStarted=false;loadEnt().then(showSeg)});
+  $('entlist').innerHTML=entSegs.map((g,i)=>{const done=n=>entTomas.find(t=>t.id===g.id&&t.ronda===n);
+    const last=entTomas.find(t=>t.id===g.id&&t.ronda===ronda)||entTomas.find(t=>t.id===g.id);
+    const rs=g.id==='00-consentimiento'?`<span class="r ${done(1)||entTomas.some(t=>t.id===g.id)?'ok':''}">${entTomas.some(t=>t.id===g.id)?'✓ recorded':'pending'}</span>`
+      :[1,2,3].map(n=>`<span class="r ${done(n)?'ok':''}">R${n}${done(n)?' ✓':''}</span>`).join('');
+    return `<div class="ep ${i===entCur?'cur':''}" data-i="${i}"><span class="t">${i+1}. ${g.titulo}</span>${rs}${last?`<audio controls preload="none" src="/voz/entreno/toma/${encodeURIComponent(last.file)}" style="height:32px"></audio>`:''}</div>`}).join('');
+  document.querySelectorAll('.ep .t').forEach(el=>el.onclick=()=>{if(recording)return;entCur=+el.parentElement.dataset.i;showSeg()});
+}
+setMode('ent');
+openMic().catch(e=>msg('Tap Record to allow the microphone.'));
+</script></body></html>
