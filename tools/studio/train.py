@@ -133,13 +133,15 @@ def cloud_delete(name):
     api = HfApi()
     if not any(f.startswith(name + "/") for f in api.list_repo_files(HF_REPO, repo_type="dataset")):
         return None  # nothing was uploaded (or it is already gone)
-    try:
-        api.delete_folder(path_in_repo=name, repo_id=HF_REPO, repo_type="dataset",
-                          commit_message=f"delete {name}")
-        return True
-    except Exception as exc:  # noqa: BLE001 — the caller reports it; the local model stands
-        print(f"cloud delete failed: {exc}", flush=True)
-        return False
+    for attempt in range(10):  # retried: a network blip must not leave her recordings in the cloud
+        try:
+            api.delete_folder(path_in_repo=name, repo_id=HF_REPO, repo_type="dataset",
+                              commit_message=f"delete {name}")
+            return True
+        except Exception as exc:  # noqa: BLE001 — the caller reports it; the local model stands
+            print(f"cloud delete failed ({attempt + 1}/10): {exc}", flush=True)
+            time.sleep(30)
+    return False
 
 
 def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
@@ -173,13 +175,24 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
     labels = {"instalar": "Instalando Applio en la nube", "datos": "Bajando las lecturas", "preparar": "Preparando el audio",
               "rasgos": "Extrayendo tono y rasgos", "entrenar": "Entrenando", "indice": "Construyendo el índice",
               "subir": "Subiendo el modelo"}
+    misses = 0
     try:
         while True:
             time.sleep(30)
-            info = json.loads(hf("jobs", "inspect", job_id))
+            try:
+                info = json.loads(hf("jobs", "inspect", job_id))
+                log = hf("jobs", "logs", job_id)
+                misses = 0
+            except (RuntimeError, ValueError) as exc:
+                # a dropped connection here is not a failed training: the job keeps running in
+                # the cloud, so keep waiting; only 10 minutes without an answer ends the wait
+                misses += 1
+                if misses >= 20:
+                    raise RuntimeError(f"sin respuesta de Hugging Face por 10 min: {exc}") from exc
+                job.step("nube", f"[{enc}] Sin conexión con la nube, reintentando ({misses})…")
+                continue
             info = info[0] if isinstance(info, list) else info
             stage = (info.get("status") or {}).get("stage", "")
-            log = subprocess.run(["hf", "jobs", "logs", job_id], capture_output=True, text=True).stdout
             marks = re.findall(r"^@@ (\w+)", log, re.M)
             epochs_seen = [int(e) for e in re.findall(r"\| epoch=(\d+) \|", log)]
             spent = (time.time() - t0) / 3600 * HF_PRICE_H
@@ -198,7 +211,10 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
             raise RuntimeError(f"el trabajo en la nube terminó en {stage}: {tail}")
     except BaseException:
         # any way out of the wait (cancel, error, a crash here): stop the billing
-        subprocess.run(["hf", "jobs", "cancel", job_id], capture_output=True)
+        for _ in range(10):  # the network that broke the wait may still be down
+            if subprocess.run(["hf", "jobs", "cancel", job_id], capture_output=True).returncode == 0:
+                break
+            time.sleep(30)
         raise
     spent = (time.time() - t0) / 3600 * HF_PRICE_H
     job.step("bajar", f"[{enc}] Bajando las épocas entrenadas… (costo de nube ≈ US${spent:.2f})", costo_usd=round(spent, 2))
