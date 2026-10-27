@@ -12,6 +12,8 @@ say instalar
 apt-get update -qq >/dev/null && apt-get install -y -qq ffmpeg >/dev/null
 git clone -q https://github.com/beautycita/Applio /applio
 cd /applio && git checkout -q "$APPLIO_REF"
+# Applio writes each epoch's small model only when its runtime config exists (gitignored, made on first UI run)
+cp assets/config_template.json assets/config.json
 pip install -q --no-cache-dir torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu126
 # the UI and audio-device packages are not needed to train
 grep -vE '^(torch|torchaudio|gradio|sounddevice|edge-tts)==' requirements.txt > /tmp/req.txt
