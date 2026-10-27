@@ -179,25 +179,54 @@ def polish(src, dst, chain="natural", target=TARGET_LUFS):
     return bounce(round(gain, 2)), gain
 
 
+def _weights(model_dir):
+    """(pth, index, embedder) for a voice model folder. A model trained on the
+    training page names its winner in studio.json; otherwise the folder's one
+    weights file — never Applio's G_*/D_* training checkpoints."""
+    info = {}
+    try:
+        info = json.load(open(os.path.join(model_dir, "studio.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    files = os.listdir(model_dir)
+    pth = info.get("pth") if info.get("pth") in files else next(
+        (f for f in sorted(files) if f.endswith(".pth") and not f.startswith(("G_", "D_"))), None)
+    index = info.get("index") if info.get("index") in files else next((f for f in files if f.endswith(".index")), "")
+    return pth, index, info.get("codificador", "contentvec")
+
+
 def voices():
-    """Voice models in logs/ that have weights."""
+    """Voice models in logs/ ready to convert with (a training still running has
+    no studio.json and only checkpoints, so it is not listed until it is done)."""
     root = os.path.join(APPLIO, "logs")
-    return sorted(d for d in os.listdir(root)
-                  if os.path.isdir(os.path.join(root, d)) and any(f.endswith(".pth") for f in os.listdir(os.path.join(root, d))))
+    out = []
+    for d in sorted(os.listdir(root)):
+        p = os.path.join(root, d)
+        if not os.path.isdir(p):
+            continue
+        has_studio = os.path.exists(os.path.join(p, "studio.json"))
+        trained_here = any(f.startswith(("G_", "D_")) for f in os.listdir(p))
+        if trained_here and not has_studio:
+            continue
+        if _weights(p)[0]:
+            out.append(d)
+    return out
 
 
 def convert(src, dst, voice, autotune=0.0, pitch=0):
     """RVC through logs/<voice>/: her timing and delivery, the model's timbre.
     autotune 0..1 snaps the pitch toward the nearest note (1 = the obvious effect);
-    pitch shifts in semitones. Consonants protected."""
+    pitch shifts in semitones. Consonants protected. Uses the content encoder the
+    model was trained with (studio.json)."""
     model_dir = os.path.join(APPLIO, "logs", voice)
-    pth = next(f for f in os.listdir(model_dir) if f.endswith(".pth"))
-    index = next((f for f in os.listdir(model_dir) if f.endswith(".index")), "")
+    pth, index, embedder = _weights(model_dir)
+    if not pth:
+        raise RuntimeError(f"el modelo {voice} no tiene pesos")
     cmd = [os.path.join(APPLIO, ".venv", "bin", "python"), "core.py", "infer", "--input-path", src,
            "--output-path", dst, "--pth-path", os.path.join(model_dir, pth),
            "--index-path", os.path.join(model_dir, index) if index else "", "--pitch", str(int(pitch)),
            "--index-rate", "0.6", "--protect", "0.4", "--volume-envelope", "1", "--f0-method", "rmvpe",
-           "--split-audio", "--export-format", "WAV"]
+           "--embedder-model", embedder, "--split-audio", "--export-format", "WAV"]
     if autotune > 0:
         cmd += ["--f0-autotune", "--f0-autotune-strength", f"{min(1.0, autotune):.2f}"]
     run(cmd, cwd=APPLIO)

@@ -15,6 +15,10 @@ the takes ent-<id>-r<round>-HHMMSS.wav, and consentimiento.json. Nothing there i
 a commercial take. Recording is refused until her spoken authorization
 (passage 00-consentimiento) is recorded and her written acceptance is saved.
 
+Voice training (/voz/entrenar/, its own page): train.py turns the training
+reading into a Spanish voice model, run as the systemd --user unit voz-entreno
+(survives restarts, one at a time; renders wait for it, they share the GPU).
+
 Modules: guion.py (script, tones, takes, picks), pipeline.py (auto-flow, run in
 the autoflow venv), render.py (editing page renders), mictest.py (the booth's
 "Prueba de micrófono"; clips kept in <out>/pruebas/, never used as takes),
@@ -90,8 +94,30 @@ FLOW = {"running": False, "msg": "", "result": None, "error": None}
 EDIT = {"running": False, "msg": "", "result": None, "error": None}
 
 
+TRAIN_UNIT = "voz-entreno"
+
+
+def training_active():
+    r = subprocess.run(["systemctl", "--user", "is-active", TRAIN_UNIT], capture_output=True, text=True)
+    return r.stdout.strip() in ("active", "activating")
+
+
 def busy():
-    return FLOW["running"] or EDIT["running"]
+    return FLOW["running"] or EDIT["running"] or training_active()
+
+
+def train_models(out):
+    root = os.path.join(ent_dir(out), "modelos")
+    items = []
+    if os.path.isdir(root):
+        for d in os.listdir(root):
+            p = os.path.join(root, d, "estado.json")
+            if os.path.isfile(p):
+                try:
+                    items.append(json.load(open(p, encoding="utf-8")))
+                except ValueError:
+                    pass
+    return sorted(items, key=lambda m: m.get("inicio", ""), reverse=True)
 
 
 def run_job(state, cmd):
@@ -199,6 +225,22 @@ class Studio(BaseHTTPRequestHandler):
         route, q = self._route(), self._query()
         if route == "/":
             return self._send(200, open(os.path.join(HERE, "booth.html"), "rb").read(), "text/html; charset=utf-8")
+        if route == "/entrenar":
+            return self._send(200, open(os.path.join(HERE, "trainer.html"), "rb").read(), "text/html; charset=utf-8")
+        if route == "/entrenamiento/estado":
+            st = ent_state(self.out)
+            from train import ENCODERS, EXAM_IDS, MIN_MINUTES
+            return self._json({"minutos": st["minutos"], "meta_min": st["meta_min"], "min_min": MIN_MINUTES,
+                               "consentimiento": st["consentimiento"], "corriendo": training_active(),
+                               "codificadores": ENCODERS, "examen_textos": EXAM_IDS,
+                               "tomas": len([t for t in st["tomas"] if t["id"] != "00-consentimiento"]),
+                               "modelos": train_models(self.out)})
+        m = re.fullmatch(r"/entrenamiento/audio/([\w-]{1,40})/(examen|muestras-contentvec|muestras-spin-v2)/([\w.-]+\.wav)", route)
+        if m:
+            p = os.path.join(ent_dir(self.out), "modelos", m[1], m[2], m[3])
+            if os.path.isfile(p):
+                return self._file(p)
+            return self._send(404, '{"error":"not found"}')
         if route == "/editar":
             return self._send(200, open(os.path.join(HERE, "editor.html"), "rb").read(), "text/html; charset=utf-8")
         if route == "/guion":
@@ -286,6 +328,36 @@ class Studio(BaseHTTPRequestHandler):
             cmd = [AUTOFLOW_PY, os.path.join(HERE, "render.py"), self.out, carpeta, json.dumps(params)]
             threading.Thread(target=run_job, args=(EDIT, cmd), daemon=True).start()
             return self._json({"started": True}, 202)
+        if route == "/entrenamiento/iniciar":
+            try:
+                b = json.loads(self._body() or b"")
+            except ValueError:
+                return self._json({"error": "inválido"}, 400)
+            from train import ENCODERS
+            name = re.sub(r"[^\w-]", "", str(b.get("nombre", "")))[:40]
+            if len(name) < 3:
+                return self._json({"error": "ponle un nombre al modelo (letras, números, guiones)"}, 400)
+            if b.get("codificador") not in (*ENCODERS, "comparar"):
+                return self._json({"error": "codificador no permitido"}, 400)
+            if not ent_state(self.out)["consentimiento"]:
+                return self._json({"error": "falta la autorización de la voz (cabina › Entrenar su voz)"}, 403)
+            params = {"nombre": name, "codificador": b["codificador"], "epocas": int(b.get("epocas", 300)),
+                      "cada": int(b.get("cada", 25)), "lote": int(b.get("lote", 6))}
+            with LOCK:
+                if busy():
+                    return self._json({"error": "hay otro proceso corriendo (entrenamiento, render o auto-flow)"}, 409)
+                subprocess.run(["systemctl", "--user", "reset-failed", TRAIN_UNIT], capture_output=True)
+                r = subprocess.run(["systemd-run", "--user", "--unit", TRAIN_UNIT, "--collect",
+                                    "-p", f"WorkingDirectory={APPLIO}", "-p", "KillSignal=SIGTERM", "-p", "TimeoutStopSec=60",
+                                    AUTOFLOW_PY, os.path.join(HERE, "train.py"), self.out, json.dumps(params)],
+                                   capture_output=True, text=True)
+            if r.returncode != 0:
+                return self._json({"error": "no se pudo iniciar: " + r.stderr[-200:]}, 500)
+            print(f"training started: {params}", flush=True)
+            return self._json({"started": True, **params}, 202)
+        if route == "/entrenamiento/cancelar":
+            subprocess.run(["systemctl", "--user", "stop", TRAIN_UNIT], capture_output=True)
+            return self._json({"ok": True})
         if route == "/entreno/acepto":
             try:
                 b = json.loads(self._body() or b"")

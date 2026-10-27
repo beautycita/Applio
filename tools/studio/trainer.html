@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entrenamiento de voz · BeautyCita</title>
+<style>
+:root{--bg:#1b1418;--panel:#271d23;--fg:#f6eef2;--dim:#b7a3ad;--pink:#ff5fa2;--ok:#5fd38a;--bad:#ff4d4d;--warn:#f2c94c;--field:#120d10}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px;display:grid;gap:16px}
+h1{margin:0;font-size:22px}h1 span{color:var(--pink)}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+nav{display:flex;gap:16px}a{color:var(--pink);font-weight:700;text-decoration:none}
+section{background:var(--panel);border-radius:12px;padding:16px;display:grid;gap:12px}
+label,.lbl{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+select,input{width:100%;padding:10px;border-radius:8px;border:1px solid #4a3a43;background:var(--field);color:var(--fg);font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+button{border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:700;cursor:pointer;background:var(--pink);color:#fff}
+button:disabled{opacity:.5;cursor:not-allowed}button.sec{background:#3a2c34;color:var(--fg);font-size:14px;padding:9px 16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.hint{color:var(--dim);font-size:14px;line-height:1.45}
+.es{background:#1d2a3a;border-left:4px solid #6aa8ff;border-radius:8px;padding:10px 12px;font-size:14px;line-height:1.45}
+.chk{display:flex;gap:10px;align-items:flex-start}.chk b{min-width:22px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+#bar{height:14px;background:var(--field);border-radius:7px;overflow:hidden}#bar div{height:100%;background:var(--pink);width:0}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #3a2c34}th{color:var(--dim);font-weight:600}
+tr.win td{color:var(--ok);font-weight:700}
+.card{background:var(--field);border-radius:10px;padding:12px;display:grid;gap:8px}
+audio{width:100%;height:36px}
+pre{white-space:pre-wrap;font-size:12px;color:var(--dim);margin:0}
+</style></head><body><main>
+<header><h1>Entrenamiento de voz <span>BeautyCita</span></h1>
+  <nav><a href="/voz/">Cabina</a><a href="/voz/editar/">Mesa de edición</a></nav></header>
+
+<div class="es"><b>Todo en español.</b> Solo entran al entrenamiento las lecturas que el reconocimiento de voz confirma como español, y cada modelo se califica con un examen en español: textos que no vio al entrenar, con erres, ñ, ll/y, j y x. El codificador de contenido se elige entre los que permiten uso comercial; los multilingües con licencia no comercial (mHuBERT-147, MMS) no se ofrecen porque la voz es para anuncios pagados.</div>
+
+<section>
+  <label>1 · Antes de entrenar</label>
+  <div id="checks"></div>
+</section>
+
+<section>
+  <label>2 · Ajustes</label>
+  <div class="grid">
+    <div><div class="lbl">Nombre del modelo</div><input id="nombre" value="quetzaly-v1"></div>
+    <div><div class="lbl">Codificador de contenido</div><select id="codificador"></select></div>
+    <div><div class="lbl">Épocas</div><select id="epocas">
+      <option value="200">200 · más rápido</option><option value="300" selected>300 · recomendado</option><option value="500">500 · más fino (más horas)</option></select></div>
+    <div><div class="lbl">Examen cada</div><select id="cada"><option value="25" selected>25 épocas</option><option value="50">50 épocas</option></select></div>
+  </div>
+  <div class="hint">Se guarda una versión cada N épocas y todas presentan el examen de español: gana la que mejor se entiende, no necesariamente la última (así se evita el sobre-entrenamiento). La tarjeta gráfica es una Quadro M4000: cuenta con varias horas; puedes cerrar esta página, el entrenamiento sigue. Mientras entrena, la mesa de edición y el auto-flow esperan.</div>
+  <div class="row"><button id="go">▶ Entrenar</button><button class="sec" id="stop" style="display:none">■ Cancelar</button><span id="msg" class="hint"></span></div>
+</section>
+
+<section id="run" style="display:none">
+  <label>3 · En curso</label>
+  <div id="stage" style="font-size:18px;font-weight:700"></div>
+  <div id="bar"><div></div></div>
+  <div id="eta" class="hint"></div>
+</section>
+
+<section>
+  <label>4 · Modelos entrenados · examen de español</label>
+  <div id="models" class="hint">Todavía no hay modelos.</div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S=null;
+async function load(){
+  S=await (await fetch('/voz/entrenamiento/estado')).json();
+  if(!$('codificador').options.length){
+    $('codificador').innerHTML=Object.entries(S.codificadores).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')+
+      '<option value="comparar">Comparar los dos (el doble de tiempo; gana el que mejor habla español)</option>'}
+  const c=S.consentimiento,mOk=S.minutos>=S.min_min;
+  const row=(ok,txt)=>`<div class="chk"><b class="${ok===true?'ok':ok==='warn'?'warn':'bad'}">${ok===true?'✓':ok==='warn'?'⚠':'✗'}</b><span>${txt}</span></div>`;
+  $('checks').innerHTML=
+    row(!!c,c?`Autorización de <b>${esc(c.nombre)}</b> (${esc(c.aceptado_en.slice(0,10))}), grabada y aceptada por escrito.`:'Falta la autorización: en la <a href="/voz/">cabina</a> › Entrenar su voz › texto 1.')+
+    row(S.minutos>=S.meta_min?true:mOk?'warn':false,`${S.minutos} min de lectura grabada (${S.tomas} tomas). Mínimo ${S.min_min} min, ideal ${S.meta_min}. ${mOk?'':'Graba más en la cabina.'}`)+
+    row(true,`Examen de español: ${S.examen_textos.map(esc).join(', ')} (ronda 3) se aparta del entrenamiento si ya tiene otra ronda grabada.`);
+  $('go').disabled=!c||!mOk||S.corriendo;
+  $('stop').style.display=S.corriendo?'':'none';
+  renderRun();renderModels();
+  setTimeout(load,S.corriendo?5000:20000);
+}
+function renderRun(){
+  const cur=S.modelos.find(m=>m.estado==='corriendo');
+  $('run').style.display=cur&&S.corriendo?'':'none';if(!cur)return;
+  $('stage').textContent=cur.msg||cur.etapa;
+  const ep=cur.etapa==='entrenar'?(cur.epoca||0)/cur.epocas:0;
+  const order=['datos','preparar','rasgos','entrenar','indice','examen','instalar','listo'];
+  const pct=cur.etapa==='entrenar'?30+60*ep:Math.max(2,order.indexOf(cur.etapa)/order.length*100);
+  $('bar').firstElementChild.style.width=Math.min(100,pct)+'%';
+  $('eta').textContent=(cur.restante_min&&cur.etapa==='entrenar'?`Faltan unos ${cur.restante_min>90?Math.round(cur.restante_min/60)+' h':cur.restante_min+' min'} de entrenamiento. `:'')+
+    (cur.datos?`Datos: ${cur.datos.minutos} min en español, ${cur.datos.aceptadas} tomas`+(cur.datos.rechazadas.length?`, ${cur.datos.rechazadas.length} descartadas`:''):'');
+}
+function renderModels(){
+  if(!S.modelos.length){$('models').textContent='Todavía no hay modelos.';return}
+  $('models').innerHTML=S.modelos.map(m=>{
+    const base=m.examen_base||{};const cols=Object.keys(base);
+    let h=`<div class="card"><div><b>${esc(m.nombre)}</b> · ${esc((m.inicio||'').slice(0,16).replace('T',' '))} · ${m.epocas} épocas · `+
+      (m.estado==='listo'?'<span class="ok">listo</span>':m.estado==='corriendo'?'<span class="warn">entrenando…</span>':m.estado==='cancelado'?'<span class="warn">cancelado</span>':`<span class="bad">error</span>`)+`</div>`;
+    if(m.error)h+=`<div class="bad">${esc(m.error)}</div>`;
+    if(m.datos&&m.datos.rechazadas.length)h+=`<details><summary class="hint">${m.datos.rechazadas.length} tomas descartadas</summary>${m.datos.rechazadas.map(r=>`<div class="hint">${esc(r.toma)}: ${esc(r.motivo)}</div>`).join('')}</details>`;
+    for(const [enc,r] of Object.entries(m.resultados||{})){
+      if(!r.examen)continue;
+      h+=`<div class="lbl" style="margin-top:6px">Codificador ${esc(enc)} · errores de palabra en español (%) · menos es mejor</div><table><tr><th>Época</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>`+
+        `<tr><td class="hint">Su voz real</td>${cols.map(c=>`<td class="hint">${base[c]}</td>`).join('')}</tr>`+
+        r.examen.map(s=>`<tr class="${r.ganador&&r.ganador.epoca===s.epoca?'win':''}"><td>${s.epoca}${r.ganador&&r.ganador.epoca===s.epoca?' ★':''}</td>${cols.map(c=>`<td>${s[c]??'—'}</td>`).join('')}</tr>`).join('')+'</table>';
+      if(r.ganador){const ex=(m.datos&&m.datos.examen)||[];
+        h+=`<div class="hint">Instalado como <b>${esc(r.modelo)}</b> (época ${r.ganador.epoca}): ya está en la lista de voces de la <a href="/voz/editar/">mesa de edición</a>.</div>`+
+          ex.map(f=>`<div class="grid"><div><div class="lbl">Su voz · ${esc(f.replace(/^ent-|-r\d-.*$/g,''))}</div><audio controls preload="none" src="/voz/entrenamiento/audio/${encodeURIComponent(m.nombre)}/examen/${encodeURIComponent(f)}"></audio></div>`+
+            `<div><div class="lbl">El modelo</div><audio controls preload="none" src="/voz/entrenamiento/audio/${encodeURIComponent(m.nombre)}/muestras-${enc}/${encodeURIComponent('e'+r.ganador.epoca+'-'+f)}"></audio></div></div>`).join('')}
+    }
+    return h+'</div>'}).join('');
+}
+$('go').onclick=async()=>{const body={nombre:$('nombre').value,codificador:$('codificador').value,epocas:+$('epocas').value,cada:+$('cada').value};
+  const r=await fetch('/voz/entrenamiento/iniciar',{method:'POST',body:JSON.stringify(body)});const j=await r.json();
+  $('msg').textContent=r.ok?'Entrenamiento iniciado.':j.error;load()};
+$('stop').onclick=async()=>{if(!confirm('¿Cancelar el entrenamiento? Se pierde lo avanzado de este modelo.'))return;
+  await fetch('/voz/entrenamiento/cancelar',{method:'POST'});$('msg').textContent='Cancelando…';setTimeout(load,2000)};
+load();
+</script></body></html>
