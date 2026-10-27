@@ -89,7 +89,7 @@ def ent_state(out):
             "minutos": round(sum(latest.values()) / 60, 1), "meta_min": ENT_META_MIN}
 
 
-ALLOWED_ORIGINS = {"https://bc-dev.tail897a37.ts.net", "http://127.0.0.1:8765", "http://127.0.0.1:8766"}
+ALLOWED_ORIGINS = {"https://bc-dev.tail897a37.ts.net", "https://bc-dev.tail897a37.ts.net:8443", "http://127.0.0.1:8765", "http://127.0.0.1:8766"}
 LOCK = threading.Lock()
 FLOW = {"running": False, "msg": "", "result": None, "error": None}
 EDIT = {"running": False, "msg": "", "result": None, "error": None}
@@ -230,10 +230,11 @@ class Studio(BaseHTTPRequestHandler):
             return self._send(200, open(os.path.join(HERE, "trainer.html"), "rb").read(), "text/html; charset=utf-8")
         if route == "/entrenamiento/estado":
             st = ent_state(self.out)
-            from train import ENCODERS, EXAM_IDS, MIN_MINUTES
+            from train import ENCODERS, LANGS, MIN_MINUTES, folder_config, lang_of
             return self._json({"minutos": st["minutos"], "meta_min": st["meta_min"], "min_min": MIN_MINUTES,
                                "consentimiento": st["consentimiento"], "corriendo": training_active(),
-                               "codificadores": ENCODERS, "examen_textos": EXAM_IDS,
+                               "codificadores": ENCODERS, "examen_textos": LANGS[lang_of(ent_dir(self.out))]["examen"],
+                               "modelo": folder_config(ent_dir(self.out)).get("modelo", "quetzaly-v1"),
                                "tomas": len([t for t in st["tomas"] if t["id"] != "00-consentimiento"]),
                                "modelos": train_models(self.out)})
         m = re.fullmatch(r"/entrenamiento/audio/([\w-]{1,40})/(examen|muestras-contentvec|muestras-spin-v2)/([\w.-]+\.wav)", route)

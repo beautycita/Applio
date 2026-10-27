@@ -74,6 +74,7 @@ let S=null;
 async function load(){
   S=await (await fetch('/voz/entrenamiento/estado')).json();
   if(!$('codificador').options.length){
+    $('nombre').value=S.modelo||$('nombre').value;  // each studio folder names its own model (never another voice's)
     $('codificador').innerHTML=Object.entries(S.codificadores).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')+
       '<option value="comparar">Comparar los dos (el doble de tiempo; gana el que mejor habla español)</option>'}
   const c=S.consentimiento,mOk=S.minutos>=S.min_min;

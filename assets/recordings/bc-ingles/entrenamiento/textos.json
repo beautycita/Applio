@@ -1,0 +1,128 @@
+[
+ {
+  "id": "00-consentimiento",
+  "titulo": "Authorization (read it as written)",
+  "estilo": "Plain and clear, no acting.",
+  "texto": "I, [say your full name], authorize BeautyCita to use these recordings of my voice to train a synthetic voice model. I know the recordings may be processed on a cloud provider's servers, and that they are deleted from there afterwards. I know I can withdraw this authorization at any time, and that the model and the recordings will then be deleted. Today is the ____ of ____, twenty twenty-six."
+ },
+ {
+  "id": "01-narration",
+  "titulo": "Calm narration",
+  "estilo": "Documentary voice: slow, warm, unhurried.",
+  "texto": "On a quiet street in Puerto Vallarta, the morning sun slips through the window of a small salon. It smells like coffee and coconut shampoo. The owner lines up her brushes, switches on the dryer and checks the day: a haircut at ten, a color at noon, and gel nails at four. Outside, the ocean murmurs in the distance. Inside, everything is ready to begin."
+ },
+ {
+  "id": "02-smile",
+  "titulo": "With a smile",
+  "estilo": "Smile while you talk; let the smile be heard.",
+  "texto": "Hey, so good to see you again! Come on in, have a seat. Can I get you a glass of water? Today we're going to spoil you. First a wash, then just a trim on the ends, and to finish, soft waves, the way you like them. You're going to walk out looking amazing. And if you want, we can book your next visit for a month from now."
+ },
+ {
+  "id": "03-energy",
+  "titulo": "High-energy ad",
+  "estilo": "High energy, quick pace, no shouting.",
+  "texto": "Attention, Guadalajara! This weekend only, every manicure and pedicure is twenty percent off. Book in seconds from your phone, pick your time, and walk straight into your appointment. No lines, no calls, no waiting. Hurry, spots are going fast!"
+ },
+ {
+  "id": "04-questions",
+  "titulo": "Questions",
+  "estilo": "Give every question its own rising tone.",
+  "texto": "How much time do you spend answering messages? An hour a day? Two? And how many clients slip away because you couldn't reply in time? Did you know most people book at night, after your salon has closed? Can you imagine waking up to a full calendar? Why not try it today?"
+ },
+ {
+  "id": "05-numbers",
+  "titulo": "Numbers, prices and dates",
+  "estilo": "Clear, like someone giving important details.",
+  "texto": "A haircut is three hundred and fifty pesos. A full color, nine hundred and eighty. Individual lash extensions, one thousand two hundred and fifty. Your appointment is Thursday, November fourteenth, at four thirty in the afternoon. Pay today and save fifteen percent. Call us at three two two, one five eight, seven four zero nine."
+ },
+ {
+  "id": "06-brand",
+  "titulo": "Brand names",
+  "estilo": "Confident, every name pronounced cleanly.",
+  "texto": "BeautyCita. ExpressCita. Register your salon at beautycita dot com. With BeautyCita, your clients book themselves. With ExpressCita, they book right from your window. BeautyCita: a full calendar, and your time back. Download BeautyCita on the App Store or Google Play."
+ },
+ {
+  "id": "07-sounds-r-l",
+  "titulo": "R and L",
+  "estilo": "Natural, don't exaggerate.",
+  "texto": "Laura rarely rushes, but on Friday she raced along the river road to reach the little salon early. She carried rollers, a lavender lotion, a loyal yellow Labrador and a bundle of red roses. Her sister Rachel laughed as the dog rolled around the freshly polished floor. Really, everything that could go wrong did, and still the curls looked lovely."
+ },
+ {
+  "id": "08-sounds-th",
+  "titulo": "TH",
+  "estilo": "Conversational, normal pace.",
+  "texto": "Thank you for thinking of us this Thursday. The three of them thought the weather would be worse, but there they were, together, with their mother and their brother, gathering things for the birthday. Nothing is better than that feeling. Something tells me this is the beginning of a thoughtful new tradition."
+ },
+ {
+  "id": "09-sounds-v-w",
+  "titulo": "V and W",
+  "estilo": "Relaxed, like chatting.",
+  "texto": "Victoria works with wavy hair every week. When the weather turns warm and wet, her clients want volume that will survive the wind. She waves a vented brush, wraps each section with a velvet clip, and wonders why anyone would wait so long to visit. Very few leave without a wide, warm smile."
+ },
+ {
+  "id": "10-warm",
+  "titulo": "Warm and close",
+  "estilo": "Very close, like talking to a friend. Soft.",
+  "texto": "I know what it's like to start out. Renting the space, buying the first chair, waiting for that first client. I know what it's like to stay late and get up early. That's why we built BeautyCita: so you can do what you love, and we take care of the rest. You're not alone."
+ },
+ {
+  "id": "11-firm",
+  "titulo": "Firm and serious",
+  "estilo": "Serious, sure, short sentences. A voice you trust.",
+  "texto": "Your money is protected. Every payment is recorded. Every withholding is calculated by the law. Every receipt goes out on time. When you work by the rules, you work at peace. And when your clients know it, they come back."
+ },
+ {
+  "id": "12-list",
+  "titulo": "List of services",
+  "estilo": "Brisk, listing with rhythm.",
+  "texto": "Cuts, color, highlights, balayage, straightening, keratin, perms, bridal styling, evening makeup, threaded brows, lashes, lifts, acrylic nails, gel, manicures, pedicures, relaxing massage, hydrating facials, waxing and beard design."
+ },
+ {
+  "id": "13-exclamations",
+  "titulo": "Exclamations",
+  "estilo": "Each line a different emotion: surprise, joy, relief, pride.",
+  "texto": "I can't believe it, it looks gorgeous! Oh, what a relief, she's here! Look at those nails! Finally, a fully booked day! Congratulations, you opened your second location! I'm so proud, truly!"
+ },
+ {
+  "id": "14-explaining",
+  "titulo": "Step by step",
+  "estilo": "Patient, like a teacher.",
+  "texto": "It's really simple. First, go to beautycita dot com and register your salon. Next, add your services with their price and length. Then set your hours, and each stylist's hours. Finally, share your page on WhatsApp. From that moment on, your clients can book on their own."
+ },
+ {
+  "id": "15-soft",
+  "titulo": "Quiet",
+  "estilo": "Almost a secret: lower your voice but stay clear. Don't move closer to the mic, just get quieter.",
+  "texto": "Let me tell you a secret. The best clients aren't the ones who come once. They're the ones who come back every month, who recommend you to their sisters, their friends, their mother. Take care of them. Remind them of their appointment. Send them something kind on their birthday."
+ },
+ {
+  "id": "16-story",
+  "titulo": "A story",
+  "estilo": "Telling an anecdote, with changes of pace.",
+  "texto": "Two years ago, Lucy cut hair in her garage. She had one chair, an old mirror and a lot of drive. One day a client told her: you should open a salon. Lucy laughed. But that night she ran the numbers, the next month she rented a space, and today she has three stylists and a waiting list. It all started with one chair."
+ },
+ {
+  "id": "17-vowels",
+  "titulo": "Vowels and glides",
+  "estilo": "Natural, unhurried.",
+  "texto": "Owen and Aurora flew out to the island in early July. She wanted air, ocean and sun; he wanted to read and rest his eyes. When they came home, Aurora went to the salon for a deep conditioning and plum-colored nails. Owen asked for a classic cut and a shoulder massage. They both walked out brand new."
+ },
+ {
+  "id": "18-closing",
+  "titulo": "Closing the sale",
+  "estilo": "Convincing, building at the end.",
+  "texto": "Thousands of clients search for a salon like yours every day. Some of them find you. Others don't. The difference is being where they're looking. Sign up today, at no cost, and start getting bookings this very week. BeautyCita. Your salon, always open."
+ },
+ {
+  "id": "19-dialogue",
+  "titulo": "Conversation",
+  "estilo": "Two of you: the client (curious) and you (confident). Don't change your voice too much.",
+  "texto": "And how do I know the appointment is really at that time? Because the hours you see are the salon's real hours, to the minute. And what if I'm running late? You get a reminder ahead of time, and you can let them know from the app. And if I want to change the day? You change it yourself, no phone call. Oh, well, that works."
+ },
+ {
+  "id": "20-slow",
+  "titulo": "Very slowly",
+  "estilo": "Very slow, each word apart, like an elegant ad.",
+  "texto": "Beauty. Time. Trust. Three things you can't improvise. In your salon, you care for them with your hands. We take care of everything else. BeautyCita."
+ }
+]

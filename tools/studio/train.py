@@ -18,6 +18,10 @@ SPANISH, end to end (BC 2026-10-26: "this will all be in Spanish"):
     words carrying rr / ñ / ll-y / j-x, against the same transcription of her
     real voice. The best epoch wins, which also guards against over-training.
 
+Language: Spanish unless <out>/entrenamiento/config.json says {"idioma": "en"} —
+BC's own English trial voice (2026-10-26, "to get a sense of what we're doing"),
+kept in its own folder and studio so it never mixes with her data.
+
 Stages: datos -> preparar (Applio preprocess) -> rasgos (extract, rmvpe pitch)
 -> entrenar -> indice -> examen -> instalar (logs/<name>/ with studio.json, so
 the editing page lists it). Refuses to start without the signed authorization.
@@ -44,6 +48,25 @@ ENCODERS = {"contentvec": "contentvec (MIT · recomendado)", "spin-v2": "spin-v2
 # hardest Spanish sounds, round 3 (falls back to any round that exists).
 EXAM_IDS = ["07-sonidos-r", "08-sonidos-n-ll", "09-sonidos-j-x"]
 SOUNDS = {"rr / r inicial": r"(rr|^r)", "ñ": r"ñ", "ll / y": r"(ll|y)", "j / g / x": r"(j|g[ei]|x)"}
+LANGS = {
+    "es": {"nombre": "español", "examen": EXAM_IDS, "sonidos": SOUNDS, "nube": "nube"},
+    "en": {"nombre": "inglés", "examen": ["07-sounds-r-l", "08-sounds-th", "09-sounds-v-w"],
+           "sonidos": {"r / l": r"[rl]", "th": r"th", "v / w": r"[vw]"}, "nube": "cloud"},
+}
+
+
+def folder_config(ent):
+    """<out>/entrenamiento/config.json: {"idioma": "en", "modelo": "bc-ingles-v1"} — absent means Q's Spanish studio."""
+    try:
+        return json.load(open(os.path.join(ent, "config.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def lang_of(ent):
+    """The training folder's language: 'es' unless its config.json names another one in LANGS."""
+    code = folder_config(ent).get("idioma", "es")
+    return code if code in LANGS else "es"
 MIN_MINUTES = 5.0
 
 
@@ -105,10 +128,10 @@ def wer(ref, hyp):
     return errors / max(1, len(ref)), missed
 
 
-def exam_scores(ref_words, hyp_words):
+def exam_scores(ref_words, hyp_words, sounds=SOUNDS):
     total, missed = wer(ref_words, hyp_words)
     out = {"total": round(total * 100, 1)}
-    for label, rx in SOUNDS.items():
+    for label, rx in sounds.items():
         idx = [i for i, w in enumerate(ref_words) if re.search(rx, w)]
         if idx:
             out[label] = round(100 * sum(1 for i in idx if i in missed) / len(idx), 1)
@@ -147,7 +170,7 @@ def cloud_delete(name):
 def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
     """Upload the Spanish-checked dataset, train on an L40S, bring every saved epoch back."""
     consent = json.load(open(os.path.join(folder, "entrenamiento", "consentimiento.json"), encoding="utf-8"))
-    if "nube" not in consent.get("texto", "").lower():
+    if LANGS[lang_of(os.path.join(folder, "entrenamiento"))]["nube"] not in consent.get("texto", "").lower():
         raise RuntimeError("su autorización no cubre el procesamiento en la nube; entrena en esta PC "
                            "o graba de nuevo la autorización (el texto 1 ya lo menciona)")
     from huggingface_hub import HfApi
@@ -244,6 +267,9 @@ def main(folder, params):
                inicio=datetime.datetime.now().astimezone().isoformat(timespec="seconds"), error=None, resultados={})
 
     ent = os.path.join(folder, "entrenamiento")
+    lang = lang_of(ent)
+    L = LANGS[lang]
+    job.update(idioma=lang)
     if not os.path.isfile(os.path.join(ent, "consentimiento.json")):
         raise SystemExit("falta la autorización firmada de la voz (cabina › Entrenar su voz › texto 1)")
     textos = {t["id"]: t["texto"] for t in json.load(open(os.path.join(ent, "textos.json"), encoding="utf-8"))}
@@ -258,13 +284,13 @@ def main(folder, params):
     if not latest:
         raise SystemExit("no hay lecturas de entrenamiento todavía")
     exam = {}
-    for eid in EXAM_IDS:
+    for eid in L["examen"]:
         for r in (3, 2, 1):
             if (eid, r) in latest and sum(1 for k in latest if k[0] == eid) > 1:
                 exam[eid] = latest[(eid, r)]  # only hold out when another round of it stays in training
                 break
     from faster_whisper import WhisperModel
-    job.step("datos", "Cargando el reconocimiento de voz en español…")
+    job.step("datos", f"Cargando el reconocimiento de voz en {L['nombre']}…")
     asr = WhisperModel("small", device="cpu", compute_type="int8")
     work = os.path.join(job.dir, "trabajo")
     shutil.rmtree(work, ignore_errors=True)
@@ -276,7 +302,7 @@ def main(folder, params):
     os.makedirs(examdir)
     accepted, rejected, seconds = [], [], 0.0
     for i, ((tid, r), f) in enumerate(sorted(latest.items())):
-        job.step("datos", f"Revisando que esté en español: {f} ({i + 1}/{len(latest)})")
+        job.step("datos", f"Revisando que esté en {L['nombre']}: {f} ({i + 1}/{len(latest)})")
         cleaned = pl.clean(os.path.join(ent, f), work)
         import numpy as np
         audio = np.frombuffer(pl.run_bytes(["ffmpeg", "-v", "error", "-i", cleaned, "-ac", "1", "-ar", "16000",
@@ -284,8 +310,8 @@ def main(folder, params):
         _, info = asr.transcribe(audio[:16000 * 30], beam_size=1)
         # Spanish must be the language heard (a real voice scores 90 %+; the bar
         # is lower so a short or flat reading is not thrown away for nothing)
-        if info.language != "es" or info.language_probability < 0.5:
-            rejected.append({"toma": f, "motivo": f"no parece español ({info.language} {info.language_probability:.0%})"})
+        if info.language != lang or info.language_probability < 0.5:
+            rejected.append({"toma": f, "motivo": f"no parece {L['nombre']} ({info.language} {info.language_probability:.0%})"})
             continue
         dest = examdir if exam.get(tid) == f else dataset
         out = os.path.join(dest, f)
@@ -298,7 +324,7 @@ def main(folder, params):
     job.update(datos={"minutos": minutes, "aceptadas": len(accepted), "rechazadas": rejected,
                       "examen": sorted(os.listdir(examdir))})
     if minutes < MIN_MINUTES:
-        raise SystemExit(f"solo hay {minutes} min en español para entrenar; hacen falta al menos {MIN_MINUTES:g} (ideal 20)")
+        raise SystemExit(f"solo hay {minutes} min en {L['nombre']} para entrenar; hacen falta al menos {MIN_MINUTES:g} (ideal 20)")
 
     # her real voice through the same Spanish transcription: the bar the model is measured against
     exam_refs = {}
@@ -309,16 +335,16 @@ def main(folder, params):
         import numpy as np  # decode with ffmpeg: faster-whisper's own decoder breaks on this PyAV
         audio = np.frombuffer(pl.run_bytes(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "16000",
                                              "-f", "f32le", "-"]), np.float32)
-        segs, _ = asr.transcribe(audio, language="es", beam_size=5, vad_filter=True)
+        segs, _ = asr.transcribe(audio, language=lang, beam_size=5, vad_filter=True)
         return norm_words(" ".join(s.text for s in segs))
     baseline = {}
     if exam_refs:
-        job.step("datos", "Midiendo su voz real en el examen de español…")
+        job.step("datos", f"Midiendo su voz real en el examen de {L['nombre']}…")
         ref_all, hyp_all = [], []
         for f, ref in exam_refs.items():
             ref_all += ref
             hyp_all += transcribe(os.path.join(examdir, f))
-        baseline = exam_scores(ref_all, hyp_all)
+        baseline = exam_scores(ref_all, hyp_all, L["sonidos"])
     job.update(examen_base=baseline)
 
     for enc in encoders:
@@ -373,7 +399,7 @@ def main(folder, params):
         os.makedirs(samples)
         for w in weights:
             e = int(re.search(r"_(\d+)e_", w)[1])
-            job.step("examen", f"[{enc}] Examen de español, época {e}…")
+            job.step("examen", f"[{enc}] Examen de {L['nombre']}, época {e}…")
             ref_all, hyp_all = [], []
             for f, ref in exam_refs.items():
                 dst = os.path.join(samples, f"e{e}-{f}")
@@ -383,7 +409,7 @@ def main(folder, params):
                         "--export-format", "WAV"])
                 ref_all += ref
                 hyp_all += transcribe(dst)
-            s = exam_scores(ref_all, hyp_all) if exam_refs else {"total": None}
+            s = exam_scores(ref_all, hyp_all, L["sonidos"]) if exam_refs else {"total": None}
             scores.append({"epoca": e, "pth": os.path.basename(w), **s})
             res["examen"] = scores
             job.update(resultados=job.state["resultados"])
@@ -400,7 +426,7 @@ def main(folder, params):
             if os.path.basename(p) != best["pth"]:
                 os.remove(p)  # other epochs, and Applio's G_/D_ training checkpoints (~1.3 GB)
         studio = {"nombre": model, "pth": best["pth"], "index": os.path.basename(index), "codificador": enc,
-                  "idioma": "es", "epoca": best["epoca"], "examen": best, "examen_base": baseline,
+                  "idioma": lang, "epoca": best["epoca"], "examen": best, "examen_base": baseline,
                   "minutos": minutes, "entrenado": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
                   "consentimiento": json.load(open(os.path.join(ent, "consentimiento.json"), encoding="utf-8"))}
         json.dump(studio, open(os.path.join(logs, "studio.json"), "w"), ensure_ascii=False, indent=1)
