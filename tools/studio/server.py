@@ -362,7 +362,7 @@ class Studio(BaseHTTPRequestHandler):
                     return self._json({"error": "hay otro proceso corriendo (entrenamiento, render o auto-flow)"}, 409)
                 subprocess.run(["systemctl", "--user", "reset-failed", TRAIN_UNIT], capture_output=True)
                 r = subprocess.run(["systemd-run", "--user", "--unit", TRAIN_UNIT, "--collect",
-                                    "-p", f"WorkingDirectory={APPLIO}", "-p", "KillSignal=SIGTERM", "-p", "TimeoutStopSec=60",
+                                    "-p", f"WorkingDirectory={APPLIO}", "-p", "KillSignal=SIGTERM", "-p", "TimeoutStopSec=900",
                                     AUTOFLOW_PY, os.path.join(HERE, "train.py"), self.out, json.dumps(params)],
                                    capture_output=True, text=True)
             if r.returncode != 0:
