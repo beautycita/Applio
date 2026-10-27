@@ -115,6 +115,93 @@ def exam_scores(ref_words, hyp_words):
     return out
 
 
+# ---- Cloud (Hugging Face Jobs, 1x L40S at US$1.80/h — BC 2026-10-26)
+HF_REPO = "bc-deb/beautycita-voz-privado"  # private dataset repo: her recordings never go public
+HF_FLAVOR, HF_PRICE_H = "l40sx1", 1.80
+
+
+def hf(*args, capture=True):
+    r = subprocess.run(["hf", *args], capture_output=capture, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"hf {args[0]} {args[1] if len(args) > 1 else ''} falló: {(r.stderr or r.stdout)[-300:]}")
+    return r.stdout
+
+
+def cloud_delete(name):
+    """Remove her recordings and the trained files from the cloud repo (consent: deletable on request)."""
+    from huggingface_hub import HfApi
+    api = HfApi()
+    try:
+        api.delete_folder(path_in_repo=name, repo_id=HF_REPO, repo_type="dataset",
+                          commit_message=f"delete {name} after download")
+    except Exception as exc:  # noqa: BLE001 — reported in the state, the local model stands
+        print(f"cloud delete failed: {exc}", flush=True)
+
+
+def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
+    """Upload the Spanish-checked dataset, train on an L40S, bring every saved epoch back."""
+    from huggingface_hub import HfApi
+    api = HfApi()
+    api.create_repo(HF_REPO, repo_type="dataset", private=True, exist_ok=True)
+    if not api.repo_info(HF_REPO, repo_type="dataset").private:
+        raise RuntimeError(f"{HF_REPO} no es privado: no se suben grabaciones")
+    dataset = os.path.join(job.dir, "dataset")
+    job.step("subir", f"[{enc}] Subiendo {len(os.listdir(dataset))} lecturas al repositorio privado…")
+    api.upload_folder(folder_path=dataset, path_in_repo=f"{name}/dataset", repo_id=HF_REPO, repo_type="dataset",
+                      commit_message=f"dataset {name}", delete_patterns="*.wav")
+    ref = subprocess.run(["git", "-C", APPLIO, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    script = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud_job.sh"), encoding="utf-8").read()
+    hours = max(1, round(epochs / 60 + 1))  # generous ceiling; billing is per minute of real use
+    out = hf("jobs", "run", "--flavor", HF_FLAVOR, "--timeout", f"{hours}h", "--detach", "--secrets", "HF_TOKEN",
+             "-e", f"REPO={HF_REPO}", "-e", f"RUN={name}", "-e", f"MODEL={model}", "-e", f"ENC={enc}",
+             "-e", f"EPOCHS={epochs}", "-e", f"EVERY={every}", "-e", f"BATCH={batch}", "-e", f"APPLIO_REF={ref}",
+             "--label", "beautycita=voz", "python:3.12", "/bin/sh", "-c", script)
+    job_id = re.findall(r"[0-9a-f]{24}", out)
+    if not job_id:
+        raise RuntimeError("no se obtuvo el id del trabajo en la nube: " + out[-200:])
+    job_id = job_id[-1]
+    t0 = time.time()
+    job.step("nube", f"[{enc}] Trabajo en la nube iniciado (L40S): instalando…", nube_job=job_id, nube_inicio=t0)
+    labels = {"instalar": "Instalando Applio en la nube", "datos": "Bajando las lecturas", "preparar": "Preparando el audio",
+              "rasgos": "Extrayendo tono y rasgos", "entrenar": "Entrenando", "indice": "Construyendo el índice",
+              "subir": "Subiendo el modelo"}
+    try:
+        while True:
+            time.sleep(30)
+            info = json.loads(hf("jobs", "inspect", job_id))
+            info = info[0] if isinstance(info, list) else info
+            stage = (info.get("status") or {}).get("stage", "")
+            log = subprocess.run(["hf", "jobs", "logs", job_id], capture_output=True, text=True).stdout
+            marks = re.findall(r"^@@ (\w+)", log, re.M)
+            epochs_seen = [int(e) for e in re.findall(r"\| epoch=(\d+) \|", log)]
+            spent = (time.time() - t0) / 3600 * HF_PRICE_H
+            if epochs_seen:
+                e = epochs_seen[-1]
+                rate = (time.time() - t0) / max(1, e)  # includes install; refined below
+                job.step("entrenar", f"[{enc}] Nube · época {e} de {epochs} · US${spent:.2f} hasta ahora", epoca=e,
+                         restante_min=round(rate * (epochs - e) / 60), costo_usd=round(spent, 2))
+            elif marks:
+                job.step(marks[-1] if marks[-1] in labels else "nube",
+                         f"[{enc}] Nube · {labels.get(marks[-1], marks[-1])}… · US${spent:.2f}", costo_usd=round(spent, 2))
+            if stage in ("COMPLETED", "ERROR", "CANCELED", "DELETED"):
+                break
+        if stage != "COMPLETED" or "@@ listo" not in log:
+            tail = " | ".join(log.strip().splitlines()[-4:])[-400:]
+            raise RuntimeError(f"el trabajo en la nube terminó en {stage}: {tail}")
+    except KeyboardInterrupt:
+        subprocess.run(["hf", "jobs", "cancel", job_id], capture_output=True)
+        raise
+    spent = (time.time() - t0) / 3600 * HF_PRICE_H
+    job.step("bajar", f"[{enc}] Bajando las épocas entrenadas… (costo de nube ≈ US${spent:.2f})", costo_usd=round(spent, 2))
+    os.makedirs(logs, exist_ok=True)
+    from huggingface_hub import snapshot_download
+    tmp = os.path.join(job.dir, "nube-" + enc)
+    snapshot_download(HF_REPO, repo_type="dataset", allow_patterns=[f"{name}/{enc}/*"], local_dir=tmp)
+    for f in os.listdir(os.path.join(tmp, name, enc)):
+        shutil.move(os.path.join(tmp, name, enc, f), os.path.join(logs, f))
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main(folder, params):
     folder = os.path.abspath(folder)
     name = re.sub(r"[^\w-]", "", params.get("nombre", "quetzaly-v1"))[:40] or "quetzaly-v1"
@@ -124,8 +211,11 @@ def main(folder, params):
     epochs = max(5, min(1000, int(params.get("epocas", 300))))
     every = max(5, min(100, int(params.get("cada", 25))))
     batch = max(1, min(16, int(params.get("lote", 6))))
+    where = "nube" if params.get("donde") == "nube" else "local"
+    if where == "nube":
+        batch = max(batch, 12)  # 48 GB on the L40S: a larger batch, fewer steps per epoch
     job = Job(folder, name)
-    job.update(nombre=name, codificadores=encoders, epocas=epochs, cada=every, lote=batch, estado="corriendo",
+    job.update(nombre=name, codificadores=encoders, epocas=epochs, cada=every, lote=batch, estado="corriendo", donde=where,
                inicio=datetime.datetime.now().astimezone().isoformat(timespec="seconds"), error=None, resultados={})
 
     ent = os.path.join(folder, "entrenamiento")
@@ -213,35 +303,38 @@ def main(folder, params):
         logs = os.path.join(APPLIO, "logs", model)
         shutil.rmtree(logs, ignore_errors=True)
 
-        # ---- 2-3. Applio preprocess + extract (rmvpe pitch, the chosen encoder)
-        job.step("preparar", f"[{enc}] Cortando y preparando {minutes} min de audio…", resultados=job.state["resultados"])
-        applio(["preprocess", "--model-name", model, "--dataset-path", dataset, "--sample-rate", "48000",
-                "--cpu-cores", "6", "--cut-preprocess", "Automatic", "--chunk-len", "3.0", "--overlap-len", "0.3",
-                "--normalization-mode", "post"])
-        job.step("rasgos", f"[{enc}] Extrayendo tono (rmvpe) y rasgos de voz ({enc})…")
-        applio(["extract", "--model-name", model, "--f0-method", "rmvpe", "--cpu-cores", "6", "--gpu", "0",
-                "--sample-rate", "48000", "--embedder-model", enc, "--include-mutes", "2"])
-
-        # ---- 4. train
         t0 = time.time()
+        if where == "nube":
+            cloud_train(job, folder, name, model, enc, epochs, every, batch, logs)
+        else:
+            # ---- 2-3. Applio preprocess + extract (rmvpe pitch, the chosen encoder)
+            job.step("preparar", f"[{enc}] Cortando y preparando {minutes} min de audio…", resultados=job.state["resultados"])
+            applio(["preprocess", "--model-name", model, "--dataset-path", dataset, "--sample-rate", "48000",
+                    "--cpu-cores", "6", "--cut-preprocess", "Automatic", "--chunk-len", "3.0", "--overlap-len", "0.3",
+                    "--normalization-mode", "post"])
+            job.step("rasgos", f"[{enc}] Extrayendo tono (rmvpe) y rasgos de voz ({enc})…")
+            applio(["extract", "--model-name", model, "--f0-method", "rmvpe", "--cpu-cores", "6", "--gpu", "0",
+                    "--sample-rate", "48000", "--embedder-model", enc, "--include-mutes", "2"])
 
-        def progress(line, enc=enc, t0=t0):
-            m = re.search(r"\| epoch=(\d+) \|", line)
-            if m:
-                e = int(m[1])
-                rate = (time.time() - t0) / max(1, e)
-                job.step("entrenar", f"[{enc}] Época {e} de {epochs}", epoca=e,
-                         restante_min=round(rate * (epochs - e) / 60))
+            # ---- 4. train
 
-        job.step("entrenar", f"[{enc}] Entrenando {epochs} épocas (guarda cada {every})…", epoca=0)
-        applio(["train", "--model-name", model, "--vocoder", "HiFi-GAN", "--save-every-epoch", str(every),
-                "--save-only-latest", "--total-epoch", str(epochs), "--sample-rate", "48000",
-                "--batch-size", str(batch), "--gpu", "0", "--pretrained", "--index-algorithm", "Auto"],
-               parse=progress)
+            def progress(line, enc=enc, t0=t0):
+                m = re.search(r"\| epoch=(\d+) \|", line)
+                if m:
+                    e = int(m[1])
+                    rate = (time.time() - t0) / max(1, e)
+                    job.step("entrenar", f"[{enc}] Época {e} de {epochs}", epoca=e,
+                             restante_min=round(rate * (epochs - e) / 60))
 
-        # ---- 5. index
-        job.step("indice", f"[{enc}] Construyendo el índice…")
-        applio(["index", "--model-name", model, "--index-algorithm", "Auto"])
+            job.step("entrenar", f"[{enc}] Entrenando {epochs} épocas (guarda cada {every})…", epoca=0)
+            applio(["train", "--model-name", model, "--vocoder", "HiFi-GAN", "--save-every-epoch", str(every),
+                    "--save-only-latest", "--total-epoch", str(epochs), "--sample-rate", "48000",
+                    "--batch-size", str(batch), "--gpu", "0", "--pretrained", "--index-algorithm", "Auto"],
+                   parse=progress)
+
+            # ---- 5. index
+            job.step("indice", f"[{enc}] Construyendo el índice…")
+            applio(["index", "--model-name", model, "--index-algorithm", "Auto"])
         index = next(iter(glob.glob(os.path.join(logs, "*.index"))), "")
 
         # ---- 6. the Spanish exam, every saved epoch
@@ -294,6 +387,9 @@ def main(folder, params):
     job.step("listo", f"Listo. Mejor modelo: {winner['modelo']} (época {winner['ganador']['epoca']}). "
              f"Ya aparece en la mesa de edición.", estado="listo", ganador=winner["modelo"])
     shutil.rmtree(work, ignore_errors=True)
+    if where == "nube" and params.get("borrar_nube", True):
+        job.step("listo", job.state["msg"] + " Grabaciones borradas de la nube.")
+        cloud_delete(name)
 
 
 if __name__ == "__main__":

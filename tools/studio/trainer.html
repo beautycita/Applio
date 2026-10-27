@@ -40,12 +40,17 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--dim);margin:0}
 <section>
   <label>2 · Ajustes</label>
   <div class="grid">
+    <div><div class="lbl">Dónde entrenar</div><select id="donde">
+      <option value="nube" selected>Nube · Hugging Face L40S (US$1.80/h, unas horas)</option>
+      <option value="local">Esta PC · Quadro M4000 (gratis, ~40 h con 20 min de audio)</option></select></div>
     <div><div class="lbl">Nombre del modelo</div><input id="nombre" value="quetzaly-v1"></div>
     <div><div class="lbl">Codificador de contenido</div><select id="codificador"></select></div>
     <div><div class="lbl">Épocas</div><select id="epocas">
       <option value="200">200 · más rápido</option><option value="300" selected>300 · recomendado</option><option value="500">500 · más fino (más horas)</option></select></div>
     <div><div class="lbl">Examen cada</div><select id="cada"><option value="25" selected>25 épocas</option><option value="50">50 épocas</option></select></div>
   </div>
+  <label style="text-transform:none;font-size:15px;color:var(--fg);display:flex;gap:8px;align-items:center" id="borrarrow"><input type="checkbox" id="borrar" checked style="width:auto"> Borrar sus grabaciones de la nube al terminar (el modelo se queda aquí)</label>
+  <div class="hint" id="nubehint">En la nube: sus lecturas (ya revisadas como español) se suben a un repositorio <b>privado</b> de Hugging Face, se entrena en una L40S y las épocas regresan a esta PC, donde se presenta el examen de español. Se cobra por minuto de uso real; la página muestra el costo mientras corre.</div>
   <div class="hint">Se guarda una versión cada N épocas y todas presentan el examen de español: gana la que mejor se entiende, no necesariamente la última (así se evita el sobre-entrenamiento). La tarjeta gráfica es una Quadro M4000: cuenta con varias horas; puedes cerrar esta página, el entrenamiento sigue. Mientras entrena, la mesa de edición y el auto-flow esperan.</div>
   <div class="row"><button id="go">▶ Entrenar</button><button class="sec" id="stop" style="display:none">■ Cancelar</button><span id="msg" class="hint"></span></div>
 </section>
@@ -87,17 +92,18 @@ function renderRun(){
   $('run').style.display=cur&&S.corriendo?'':'none';if(!cur)return;
   $('stage').textContent=cur.msg||cur.etapa;
   const ep=cur.etapa==='entrenar'?(cur.epoca||0)/cur.epocas:0;
-  const order=['datos','preparar','rasgos','entrenar','indice','examen','instalar','listo'];
+  const order=['datos','subir','nube','instalar','preparar','rasgos','entrenar','indice','bajar','examen','listo'];
   const pct=cur.etapa==='entrenar'?30+60*ep:Math.max(2,order.indexOf(cur.etapa)/order.length*100);
   $('bar').firstElementChild.style.width=Math.min(100,pct)+'%';
   $('eta').textContent=(cur.restante_min&&cur.etapa==='entrenar'?`Faltan unos ${cur.restante_min>90?Math.round(cur.restante_min/60)+' h':cur.restante_min+' min'} de entrenamiento. `:'')+
+    (cur.costo_usd!=null?`Costo de nube hasta ahora: US$${cur.costo_usd.toFixed(2)}. `:'')+
     (cur.datos?`Datos: ${cur.datos.minutos} min en español, ${cur.datos.aceptadas} tomas`+(cur.datos.rechazadas.length?`, ${cur.datos.rechazadas.length} descartadas`:''):'');
 }
 function renderModels(){
   if(!S.modelos.length){$('models').textContent='Todavía no hay modelos.';return}
   $('models').innerHTML=S.modelos.map(m=>{
     const base=m.examen_base||{};const cols=Object.keys(base);
-    let h=`<div class="card"><div><b>${esc(m.nombre)}</b> · ${esc((m.inicio||'').slice(0,16).replace('T',' '))} · ${m.epocas} épocas · `+
+    let h=`<div class="card"><div><b>${esc(m.nombre)}</b> · ${esc((m.inicio||'').slice(0,16).replace('T',' '))} · ${m.epocas} épocas · ${m.donde==='nube'?'nube L40S'+(m.costo_usd!=null?` (US$${m.costo_usd.toFixed(2)})`:''):'esta PC'} · `+
       (m.estado==='listo'?'<span class="ok">listo</span>':m.estado==='corriendo'?'<span class="warn">entrenando…</span>':m.estado==='cancelado'?'<span class="warn">cancelado</span>':`<span class="bad">error</span>`)+`</div>`;
     if(m.error)h+=`<div class="bad">${esc(m.error)}</div>`;
     if(m.datos&&m.datos.rechazadas.length)h+=`<details><summary class="hint">${m.datos.rechazadas.length} tomas descartadas</summary>${m.datos.rechazadas.map(r=>`<div class="hint">${esc(r.toma)}: ${esc(r.motivo)}</div>`).join('')}</details>`;
@@ -113,7 +119,9 @@ function renderModels(){
     }
     return h+'</div>'}).join('');
 }
-$('go').onclick=async()=>{const body={nombre:$('nombre').value,codificador:$('codificador').value,epocas:+$('epocas').value,cada:+$('cada').value};
+$('donde').onchange=()=>{const n=$('donde').value==='nube';$('borrarrow').style.display=$('nubehint').style.display=n?'':'none'};
+$('go').onclick=async()=>{const body={nombre:$('nombre').value,codificador:$('codificador').value,epocas:+$('epocas').value,cada:+$('cada').value,
+    donde:$('donde').value,borrar_nube:$('borrar').checked};
   const r=await fetch('/voz/entrenamiento/iniciar',{method:'POST',body:JSON.stringify(body)});const j=await r.json();
   $('msg').textContent=r.ok?'Entrenamiento iniciado.':j.error;load()};
 $('stop').onclick=async()=>{if(!confirm('¿Cancelar el entrenamiento? Se pierde lo avanzado de este modelo.'))return;

@@ -342,7 +342,9 @@ class Studio(BaseHTTPRequestHandler):
             if not ent_state(self.out)["consentimiento"]:
                 return self._json({"error": "falta la autorización de la voz (cabina › Entrenar su voz)"}, 403)
             params = {"nombre": name, "codificador": b["codificador"], "epocas": int(b.get("epocas", 300)),
-                      "cada": int(b.get("cada", 25)), "lote": int(b.get("lote", 6))}
+                      "cada": int(b.get("cada", 25)), "lote": int(b.get("lote", 6)),
+                      "donde": "nube" if b.get("donde") == "nube" else "local",
+                      "borrar_nube": bool(b.get("borrar_nube", True))}
             with LOCK:
                 if busy():
                     return self._json({"error": "hay otro proceso corriendo (entrenamiento, render o auto-flow)"}, 409)
