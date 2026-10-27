@@ -15,11 +15,12 @@ cd /applio && git checkout -q "$APPLIO_REF"
 pip install -q --no-cache-dir torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu126
 # the UI and audio-device packages are not needed to train
 grep -vE '^(torch|torchaudio|gradio|sounddevice|edge-tts)==' requirements.txt > /tmp/req.txt
-pip install -q --no-cache-dir -r /tmp/req.txt "huggingface_hub[cli]"
+pip install -q --no-cache-dir -r /tmp/req.txt huggingface_hub
 python core.py prerequisites --pretraineds-hifigan --models --no-exe
 
 say datos
-hf download "$REPO" --repo-type dataset --include "$RUN/dataset/*" --local-dir /data >/dev/null
+# the library, not the hf CLI: Applio's pinned click/typer break the CLI's exit (status 1 after a good download)
+python -c "import os; from huggingface_hub import snapshot_download as d; d(os.environ['REPO'], repo_type='dataset', allow_patterns=[os.environ['RUN'] + '/dataset/*'], local_dir='/data')" >/dev/null
 
 say preparar
 python core.py preprocess --model-name "$MODEL" --dataset-path "/data/$RUN/dataset" --sample-rate 48000 \
@@ -36,5 +37,5 @@ python core.py index --model-name "$MODEL" --index-algorithm Auto
 say subir
 mkdir -p /out
 cp logs/"$MODEL"/"$MODEL"_*e_*s.pth logs/"$MODEL"/*.index /out/
-hf upload "$REPO" /out "$RUN/$ENC" --repo-type dataset --commit-message "trained $MODEL" >/dev/null
+python -c "import os; from huggingface_hub import upload_folder as u; e = os.environ; u(folder_path='/out', path_in_repo=e['RUN'] + '/' + e['ENC'], repo_id=e['REPO'], repo_type='dataset', commit_message='trained ' + e['MODEL'])" >/dev/null
 say listo
