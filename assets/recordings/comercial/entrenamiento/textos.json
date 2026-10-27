@@ -3,7 +3,7 @@
   "id": "00-consentimiento",
   "titulo": "Autorización (léela tal cual)",
   "estilo": "Normal, clara, sin actuar.",
-  "texto": "Yo, Quetzaly López, autorizo a BeautyCita, Sociedad Anónima de Capital Variable, a usar estas grabaciones de mi voz para entrenar un modelo de voz sintética. Ese modelo se usará solo en anuncios y comunicaciones de BeautyCita. Sé que puedo retirar esta autorización cuando quiera, y que entonces el modelo y las grabaciones se borrarán. Hoy es día ____ del mes de ____ de dos mil veintiséis."
+  "texto": "Yo, Quetzaly López, autorizo a BeautyCita, Sociedad Anónima de Capital Variable, a usar estas grabaciones de mi voz para entrenar un modelo de voz sintética. Sé que las grabaciones pueden procesarse en servidores de un proveedor en la nube, y que después se borran de ahí. Ese modelo se usará solo en anuncios y comunicaciones de BeautyCita. Sé que puedo retirar esta autorización cuando quiera, y que entonces el modelo y las grabaciones se borrarán. Hoy es día ____ del mes de ____ de dos mil veintiséis."
  },
  {
   "id": "01-narracion",

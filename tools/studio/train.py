@@ -131,15 +131,23 @@ def cloud_delete(name):
     """Remove her recordings and the trained files from the cloud repo (consent: deletable on request)."""
     from huggingface_hub import HfApi
     api = HfApi()
+    if not any(f.startswith(name + "/") for f in api.list_repo_files(HF_REPO, repo_type="dataset")):
+        return None  # nothing was uploaded (or it is already gone)
     try:
         api.delete_folder(path_in_repo=name, repo_id=HF_REPO, repo_type="dataset",
-                          commit_message=f"delete {name} after download")
-    except Exception as exc:  # noqa: BLE001 — reported in the state, the local model stands
+                          commit_message=f"delete {name}")
+        return True
+    except Exception as exc:  # noqa: BLE001 — the caller reports it; the local model stands
         print(f"cloud delete failed: {exc}", flush=True)
+        return False
 
 
 def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
     """Upload the Spanish-checked dataset, train on an L40S, bring every saved epoch back."""
+    consent = json.load(open(os.path.join(folder, "entrenamiento", "consentimiento.json"), encoding="utf-8"))
+    if "nube" not in consent.get("texto", "").lower():
+        raise RuntimeError("su autorización no cubre el procesamiento en la nube; entrena en esta PC "
+                           "o graba de nuevo la autorización (el texto 1 ya lo menciona)")
     from huggingface_hub import HfApi
     api = HfApi()
     api.create_repo(HF_REPO, repo_type="dataset", private=True, exist_ok=True)
@@ -188,7 +196,8 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
         if stage != "COMPLETED" or "@@ listo" not in log:
             tail = " | ".join(log.strip().splitlines()[-4:])[-400:]
             raise RuntimeError(f"el trabajo en la nube terminó en {stage}: {tail}")
-    except KeyboardInterrupt:
+    except BaseException:
+        # any way out of the wait (cancel, error, a crash here): stop the billing
         subprocess.run(["hf", "jobs", "cancel", job_id], capture_output=True)
         raise
     spent = (time.time() - t0) / 3600 * HF_PRICE_H
@@ -387,9 +396,6 @@ def main(folder, params):
     job.step("listo", f"Listo. Mejor modelo: {winner['modelo']} (época {winner['ganador']['epoca']}). "
              f"Ya aparece en la mesa de edición.", estado="listo", ganador=winner["modelo"])
     shutil.rmtree(work, ignore_errors=True)
-    if where == "nube" and params.get("borrar_nube", True):
-        job.step("listo", job.state["msg"] + " Grabaciones borradas de la nube.")
-        cloud_delete(name)
 
 
 if __name__ == "__main__":
@@ -407,3 +413,18 @@ if __name__ == "__main__":
         j.update(estado="cancelado" if isinstance(exc, KeyboardInterrupt) else "error",
                  error=str(exc)[-600:], etapa=j.state.get("etapa"))
         raise
+    finally:
+        # Her recordings leave the cloud on EVERY exit when asked — done, failed or cancelled.
+        if params.get("donde") == "nube" and params.get("borrar_nube", True):
+            j = Job(folder, name)
+            try:
+                ok = cloud_delete(name)
+            except Exception as exc:  # noqa: BLE001
+                ok, err = False, str(exc)
+            if ok is None:
+                pass
+            elif ok:
+                j.update(nube_borrado=True, msg=(j.state.get("msg") or "") + " Grabaciones borradas de la nube.")
+            else:
+                j.update(nube_borrado=False, aviso=f"NO se pudieron borrar las grabaciones de la nube ({HF_REPO}/{name}). "
+                         "Bórralas a mano en Hugging Face.")

@@ -89,6 +89,7 @@ def ent_state(out):
             "minutos": round(sum(latest.values()) / 60, 1), "meta_min": ENT_META_MIN}
 
 
+ALLOWED_ORIGINS = {"https://bc-dev.tail897a37.ts.net", "http://127.0.0.1:8765", "http://127.0.0.1:8766"}
 LOCK = threading.Lock()
 FLOW = {"running": False, "msg": "", "result": None, "error": None}
 EDIT = {"running": False, "msg": "", "result": None, "error": None}
@@ -294,7 +295,18 @@ class Studio(BaseHTTPRequestHandler):
                 return self._file(p)
         self._send(404, '{"error":"not found"}')
 
+    def _cross_site(self):
+        """A browser request started by another site (CSRF): every POST here
+        records, spends money or uploads biometric data, so only this page may."""
+        site = self.headers.get("Sec-Fetch-Site")
+        if site and site not in ("same-origin", "none"):
+            return True
+        origin = self.headers.get("Origin")
+        return bool(origin) and origin not in ALLOWED_ORIGINS
+
     def do_POST(self):
+        if self._cross_site():
+            return self._json({"error": "solicitud de otro sitio rechazada"}, 403)
         route, q = self._route(), self._query()
         if route == "/procesar":
             voice = re.sub(r"[^\w-]", "", q.get("voz", "US_Female_1")) or "none"
