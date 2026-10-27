@@ -67,6 +67,14 @@ def lang_of(ent):
     """The training folder's language: 'es' unless its config.json names another one in LANGS."""
     code = folder_config(ent).get("idioma", "es")
     return code if code in LANGS else "es"
+
+
+LANG = "es"  # set by main() from the folder: what the page shows follows the studio's language
+
+
+def tr(es, en):
+    """A message in the studio's language (BC's English trial studio reads English)."""
+    return en if LANG == "en" else es
 MIN_MINUTES = 5.0
 
 
@@ -104,7 +112,7 @@ def applio(args, job=None, parse=None):
         if parse:
             parse(line)
     if proc.wait() != 0:
-        raise RuntimeError(f"core.py {args[0]} falló: " + " | ".join(tail[-4:])[-400:])
+        raise RuntimeError(f"core.py {args[0]} " + tr("falló", "failed") + ": " + " | ".join(tail[-4:])[-400:])
     return tail
 
 
@@ -146,7 +154,7 @@ HF_FLAVOR, HF_PRICE_H = "l40sx1", 1.80
 def hf(*args, capture=True):
     r = subprocess.run(["hf", *args], capture_output=capture, text=True)
     if r.returncode != 0:
-        raise RuntimeError(f"hf {args[0]} {args[1] if len(args) > 1 else ''} falló: {(r.stderr or r.stdout)[-300:]}")
+        raise RuntimeError(f"hf {args[0]} {args[1] if len(args) > 1 else ''} " + tr("falló", "failed") + f": {(r.stderr or r.stdout)[-300:]}")
     return r.stdout
 
 
@@ -171,15 +179,18 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
     """Upload the Spanish-checked dataset, train on an L40S, bring every saved epoch back."""
     consent = json.load(open(os.path.join(folder, "entrenamiento", "consentimiento.json"), encoding="utf-8"))
     if LANGS[lang_of(os.path.join(folder, "entrenamiento"))]["nube"] not in consent.get("texto", "").lower():
-        raise RuntimeError("su autorización no cubre el procesamiento en la nube; entrena en esta PC "
-                           "o graba de nuevo la autorización (el texto 1 ya lo menciona)")
+        raise RuntimeError(tr("su autorización no cubre el procesamiento en la nube; entrena en esta PC "
+                              "o graba de nuevo la autorización (el texto 1 ya lo menciona)",
+                              "the authorization does not cover cloud processing; train on this PC "
+                              "or record the authorization again (text 1 already mentions it)"))
     from huggingface_hub import HfApi
     api = HfApi()
     api.create_repo(HF_REPO, repo_type="dataset", private=True, exist_ok=True)
     if not api.repo_info(HF_REPO, repo_type="dataset").private:
-        raise RuntimeError(f"{HF_REPO} no es privado: no se suben grabaciones")
+        raise RuntimeError(f"{HF_REPO} " + tr("no es privado: no se suben grabaciones", "is not private: no recordings are uploaded"))
     dataset = os.path.join(job.dir, "dataset")
-    job.step("subir", f"[{enc}] Subiendo {len(os.listdir(dataset))} lecturas al repositorio privado…")
+    job.step("subir", f"[{enc}] " + tr(f"Subiendo {len(os.listdir(dataset))} lecturas al repositorio privado…",
+                                         f"Uploading {len(os.listdir(dataset))} readings to the private repository…"))
     api.upload_folder(folder_path=dataset, path_in_repo=f"{name}/dataset", repo_id=HF_REPO, repo_type="dataset",
                       commit_message=f"dataset {name}", delete_patterns="*.wav")
     ref = subprocess.run(["git", "-C", APPLIO, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
@@ -191,13 +202,17 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
              "--label", "beautycita=voz", "python:3.12", "/bin/sh", "-c", script)
     job_id = re.findall(r"[0-9a-f]{24}", out)
     if not job_id:
-        raise RuntimeError("no se obtuvo el id del trabajo en la nube: " + out[-200:])
+        raise RuntimeError(tr("no se obtuvo el id del trabajo en la nube: ", "the cloud job id did not come back: ") + out[-200:])
     job_id = job_id[-1]
     t0 = time.time()
-    job.step("nube", f"[{enc}] Trabajo en la nube iniciado (L40S): instalando…", nube_job=job_id, nube_inicio=t0)
-    labels = {"instalar": "Instalando Applio en la nube", "datos": "Bajando las lecturas", "preparar": "Preparando el audio",
-              "rasgos": "Extrayendo tono y rasgos", "entrenar": "Entrenando", "indice": "Construyendo el índice",
-              "subir": "Subiendo el modelo"}
+    job.step("nube", f"[{enc}] " + tr("Trabajo en la nube iniciado (L40S): instalando…", "Cloud job started (L40S): installing…"),
+             nube_job=job_id, nube_inicio=t0)
+    labels = {"instalar": tr("Instalando Applio en la nube", "Installing Applio in the cloud"),
+              "datos": tr("Bajando las lecturas", "Downloading the readings"),
+              "preparar": tr("Preparando el audio", "Preparing the audio"),
+              "rasgos": tr("Extrayendo tono y rasgos", "Extracting pitch and features"),
+              "entrenar": tr("Entrenando", "Training"), "indice": tr("Construyendo el índice", "Building the index"),
+              "subir": tr("Subiendo el modelo", "Uploading the model")}
     misses = 0
     try:
         while True:
@@ -211,8 +226,8 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
                 # the cloud, so keep waiting; only 10 minutes without an answer ends the wait
                 misses += 1
                 if misses >= 20:
-                    raise RuntimeError(f"sin respuesta de Hugging Face por 10 min: {exc}") from exc
-                job.step("nube", f"[{enc}] Sin conexión con la nube, reintentando ({misses})…")
+                    raise RuntimeError(tr("sin respuesta de Hugging Face por 10 min: ", "no answer from Hugging Face for 10 min: ") + str(exc)) from exc
+                job.step("nube", f"[{enc}] " + tr("Sin conexión con la nube, reintentando", "No connection to the cloud, retrying") + f" ({misses})…")
                 continue
             info = info[0] if isinstance(info, list) else info
             stage = (info.get("status") or {}).get("stage", "")
@@ -222,16 +237,17 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
             if epochs_seen:
                 e = epochs_seen[-1]
                 rate = (time.time() - t0) / max(1, e)  # includes install; refined below
-                job.step("entrenar", f"[{enc}] Nube · época {e} de {epochs} · US${spent:.2f} hasta ahora", epoca=e,
+                job.step("entrenar", f"[{enc}] " + tr(f"Nube · época {e} de {epochs} · US${spent:.2f} hasta ahora",
+                                                     f"Cloud · epoch {e} of {epochs} · US${spent:.2f} so far"), epoca=e,
                          restante_min=round(rate * (epochs - e) / 60), costo_usd=round(spent, 2))
             elif marks:
                 job.step(marks[-1] if marks[-1] in labels else "nube",
-                         f"[{enc}] Nube · {labels.get(marks[-1], marks[-1])}… · US${spent:.2f}", costo_usd=round(spent, 2))
+                         f"[{enc}] " + tr("Nube", "Cloud") + f" · {labels.get(marks[-1], marks[-1])}… · US${spent:.2f}", costo_usd=round(spent, 2))
             if stage in ("COMPLETED", "ERROR", "CANCELED", "DELETED"):
                 break
         if stage != "COMPLETED" or "@@ listo" not in log:
             tail = " | ".join(log.strip().splitlines()[-4:])[-400:]
-            raise RuntimeError(f"el trabajo en la nube terminó en {stage}: {tail}")
+            raise RuntimeError(tr("el trabajo en la nube terminó en", "the cloud job ended in") + f" {stage}: {tail}")
     except BaseException:
         # any way out of the wait (cancel, error, a crash here): stop the billing
         for _ in range(10):  # the network that broke the wait may still be down
@@ -240,7 +256,8 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
             time.sleep(30)
         raise
     spent = (time.time() - t0) / 3600 * HF_PRICE_H
-    job.step("bajar", f"[{enc}] Bajando las épocas entrenadas… (costo de nube ≈ US${spent:.2f})", costo_usd=round(spent, 2))
+    job.step("bajar", f"[{enc}] " + tr(f"Bajando las épocas entrenadas… (costo de nube ≈ US${spent:.2f})",
+                                        f"Downloading the trained epochs… (cloud cost ≈ US${spent:.2f})"), costo_usd=round(spent, 2))
     os.makedirs(logs, exist_ok=True)
     from huggingface_hub import snapshot_download
     tmp = os.path.join(job.dir, "nube-" + enc)
@@ -251,11 +268,13 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
 
 
 def main(folder, params):
+    global LANG
     folder = os.path.abspath(folder)
+    LANG = lang_of(os.path.join(folder, "entrenamiento"))
     name = re.sub(r"[^\w-]", "", params.get("nombre", "quetzaly-v1"))[:40] or "quetzaly-v1"
     encoders = ["contentvec", "spin-v2"] if params.get("codificador") == "comparar" else [params.get("codificador", "contentvec")]
     if any(e not in ENCODERS for e in encoders):
-        raise SystemExit("codificador no permitido")
+        raise SystemExit(tr("codificador no permitido", "encoder not allowed"))
     epochs = max(5, min(1000, int(params.get("epocas", 300))))
     every = max(5, min(100, int(params.get("cada", 25))))
     batch = max(1, min(16, int(params.get("lote", 6))))
@@ -267,11 +286,12 @@ def main(folder, params):
                inicio=datetime.datetime.now().astimezone().isoformat(timespec="seconds"), error=None, resultados={})
 
     ent = os.path.join(folder, "entrenamiento")
-    lang = lang_of(ent)
+    lang = LANG
     L = LANGS[lang]
     job.update(idioma=lang)
     if not os.path.isfile(os.path.join(ent, "consentimiento.json")):
-        raise SystemExit("falta la autorización firmada de la voz (cabina › Entrenar su voz › texto 1)")
+        raise SystemExit(tr("falta la autorización firmada de la voz (cabina › Entrenar su voz › texto 1)",
+                            "the signed voice authorization is missing (booth › text 1)"))
     textos = {t["id"]: t["texto"] for t in json.load(open(os.path.join(ent, "textos.json"), encoding="utf-8"))}
 
     # ---- 1. datos: clean, check Spanish, hold out the exam
@@ -282,7 +302,7 @@ def main(folder, params):
         if m["id"] != "00-consentimiento" and m["id"] in textos:
             latest[(m["id"], int(m["r"]))] = f  # the latest take of each text and round
     if not latest:
-        raise SystemExit("no hay lecturas de entrenamiento todavía")
+        raise SystemExit(tr("no hay lecturas de entrenamiento todavía", "there are no training readings yet"))
     exam = {}
     for eid in L["examen"]:
         for r in (3, 2, 1):
@@ -290,7 +310,7 @@ def main(folder, params):
                 exam[eid] = latest[(eid, r)]  # only hold out when another round of it stays in training
                 break
     from faster_whisper import WhisperModel
-    job.step("datos", f"Cargando el reconocimiento de voz en {L['nombre']}…")
+    job.step("datos", tr("Cargando el reconocimiento de voz en español…", "Loading English speech recognition…"))
     asr = WhisperModel("small", device="cpu", compute_type="int8")
     work = os.path.join(job.dir, "trabajo")
     shutil.rmtree(work, ignore_errors=True)
@@ -302,7 +322,7 @@ def main(folder, params):
     os.makedirs(examdir)
     accepted, rejected, seconds = [], [], 0.0
     for i, ((tid, r), f) in enumerate(sorted(latest.items())):
-        job.step("datos", f"Revisando que esté en {L['nombre']}: {f} ({i + 1}/{len(latest)})")
+        job.step("datos", tr("Revisando que esté en español", "Checking it is English") + f": {f} ({i + 1}/{len(latest)})")
         cleaned = pl.clean(os.path.join(ent, f), work)
         import numpy as np
         audio = np.frombuffer(pl.run_bytes(["ffmpeg", "-v", "error", "-i", cleaned, "-ac", "1", "-ar", "16000",
@@ -311,7 +331,8 @@ def main(folder, params):
         # Spanish must be the language heard (a real voice scores 90 %+; the bar
         # is lower so a short or flat reading is not thrown away for nothing)
         if info.language != lang or info.language_probability < 0.5:
-            rejected.append({"toma": f, "motivo": f"no parece {L['nombre']} ({info.language} {info.language_probability:.0%})"})
+            rejected.append({"toma": f, "motivo": tr("no parece español", "does not sound like English")
+                             + f" ({info.language} {info.language_probability:.0%})"})
             continue
         dest = examdir if exam.get(tid) == f else dataset
         out = os.path.join(dest, f)
@@ -324,7 +345,8 @@ def main(folder, params):
     job.update(datos={"minutos": minutes, "aceptadas": len(accepted), "rechazadas": rejected,
                       "examen": sorted(os.listdir(examdir))})
     if minutes < MIN_MINUTES:
-        raise SystemExit(f"solo hay {minutes} min en {L['nombre']} para entrenar; hacen falta al menos {MIN_MINUTES:g} (ideal 20)")
+        raise SystemExit(tr(f"solo hay {minutes} min en español para entrenar; hacen falta al menos {MIN_MINUTES:g} (ideal 20)",
+                            f"only {minutes} min of English to train on; at least {MIN_MINUTES:g} are needed (ideal 20)"))
 
     # her real voice through the same Spanish transcription: the bar the model is measured against
     exam_refs = {}
@@ -339,7 +361,7 @@ def main(folder, params):
         return norm_words(" ".join(s.text for s in segs))
     baseline = {}
     if exam_refs:
-        job.step("datos", f"Midiendo su voz real en el examen de {L['nombre']}…")
+        job.step("datos", tr("Midiendo su voz real en el examen de español…", "Measuring the real voice on the English exam…"))
         ref_all, hyp_all = [], []
         for f, ref in exam_refs.items():
             ref_all += ref
@@ -359,11 +381,12 @@ def main(folder, params):
             cloud_train(job, folder, name, model, enc, epochs, every, batch, logs)
         else:
             # ---- 2-3. Applio preprocess + extract (rmvpe pitch, the chosen encoder)
-            job.step("preparar", f"[{enc}] Cortando y preparando {minutes} min de audio…", resultados=job.state["resultados"])
+            job.step("preparar", f"[{enc}] " + tr(f"Cortando y preparando {minutes} min de audio…", f"Slicing and preparing {minutes} min of audio…"),
+                     resultados=job.state["resultados"])
             applio(["preprocess", "--model-name", model, "--dataset-path", dataset, "--sample-rate", "48000",
                     "--cpu-cores", "6", "--cut-preprocess", "Automatic", "--chunk-len", "3.0", "--overlap-len", "0.3",
                     "--normalization-mode", "post"])
-            job.step("rasgos", f"[{enc}] Extrayendo tono (rmvpe) y rasgos de voz ({enc})…")
+            job.step("rasgos", f"[{enc}] " + tr("Extrayendo tono (rmvpe) y rasgos de voz", "Extracting pitch (rmvpe) and voice features") + f" ({enc})…")
             applio(["extract", "--model-name", model, "--f0-method", "rmvpe", "--cpu-cores", "6", "--gpu", "0",
                     "--sample-rate", "48000", "--embedder-model", enc, "--include-mutes", "2"])
 
@@ -374,17 +397,18 @@ def main(folder, params):
                 if m:
                     e = int(m[1])
                     rate = (time.time() - t0) / max(1, e)
-                    job.step("entrenar", f"[{enc}] Época {e} de {epochs}", epoca=e,
+                    job.step("entrenar", f"[{enc}] " + tr(f"Época {e} de {epochs}", f"Epoch {e} of {epochs}"), epoca=e,
                              restante_min=round(rate * (epochs - e) / 60))
 
-            job.step("entrenar", f"[{enc}] Entrenando {epochs} épocas (guarda cada {every})…", epoca=0)
+            job.step("entrenar", f"[{enc}] " + tr(f"Entrenando {epochs} épocas (guarda cada {every})…",
+                                                 f"Training {epochs} epochs (saves every {every})…"), epoca=0)
             applio(["train", "--model-name", model, "--vocoder", "HiFi-GAN", "--save-every-epoch", str(every),
                     "--save-only-latest", "--total-epoch", str(epochs), "--sample-rate", "48000",
                     "--batch-size", str(batch), "--gpu", "0", "--pretrained", "--index-algorithm", "Auto"],
                    parse=progress)
 
             # ---- 5. index
-            job.step("indice", f"[{enc}] Construyendo el índice…")
+            job.step("indice", f"[{enc}] " + tr("Construyendo el índice…", "Building the index…"))
             applio(["index", "--model-name", model, "--index-algorithm", "Auto"])
         index = next(iter(glob.glob(os.path.join(logs, "*.index"))), "")
 
@@ -392,14 +416,14 @@ def main(folder, params):
         weights = sorted(glob.glob(os.path.join(logs, f"{model}_*e_*s.pth")),
                          key=lambda p: int(re.search(r"_(\d+)e_", p)[1]))
         if not weights:
-            raise RuntimeError("el entrenamiento no guardó ningún modelo")
+            raise RuntimeError(tr("el entrenamiento no guardó ningún modelo", "training saved no model"))
         scores = []
         samples = os.path.join(job.dir, f"muestras-{enc}")
         shutil.rmtree(samples, ignore_errors=True)
         os.makedirs(samples)
         for w in weights:
             e = int(re.search(r"_(\d+)e_", w)[1])
-            job.step("examen", f"[{enc}] Examen de {L['nombre']}, época {e}…")
+            job.step("examen", f"[{enc}] " + tr(f"Examen de español, época {e}…", f"English exam, epoch {e}…"))
             ref_all, hyp_all = [], []
             for f, ref in exam_refs.items():
                 dst = os.path.join(samples, f"e{e}-{f}")
@@ -435,8 +459,10 @@ def main(folder, params):
 
     done = [r for r in job.state["resultados"].values() if r.get("etapa") == "listo"]
     winner = min(done, key=lambda r: r["ganador"]["total"] if r["ganador"]["total"] is not None else 0)
-    job.step("listo", f"Listo. Mejor modelo: {winner['modelo']} (época {winner['ganador']['epoca']}). "
-             f"Ya aparece en la mesa de edición.", estado="listo", ganador=winner["modelo"])
+    job.step("listo", tr(f"Listo. Mejor modelo: {winner['modelo']} (época {winner['ganador']['epoca']}). "
+                         "Ya aparece en la mesa de edición.",
+                         f"Done. Best model: {winner['modelo']} (epoch {winner['ganador']['epoca']}). "
+                         "Listen to it below."), estado="listo", ganador=winner["modelo"])
     shutil.rmtree(work, ignore_errors=True)
 
 
@@ -447,6 +473,7 @@ if __name__ == "__main__":
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, _stop)
     folder, params = os.path.abspath(sys.argv[1]), json.loads(sys.argv[2])
+    LANG = lang_of(os.path.join(folder, "entrenamiento"))
     name = re.sub(r"[^\w-]", "", params.get("nombre", "quetzaly-v1"))[:40] or "quetzaly-v1"
     try:
         main(folder, params)
@@ -466,7 +493,9 @@ if __name__ == "__main__":
             if ok is None:
                 pass
             elif ok:
-                j.update(nube_borrado=True, msg=(j.state.get("msg") or "") + " Grabaciones borradas de la nube.")
+                j.update(nube_borrado=True, msg=(j.state.get("msg") or "") + tr(" Grabaciones borradas de la nube.", " Recordings deleted from the cloud."))
             else:
-                j.update(nube_borrado=False, aviso=f"NO se pudieron borrar las grabaciones de la nube ({HF_REPO}/{name}). "
-                         "Bórralas a mano en Hugging Face.")
+                j.update(nube_borrado=False, aviso=tr(f"NO se pudieron borrar las grabaciones de la nube ({HF_REPO}/{name}). "
+                                                      "Bórralas a mano en Hugging Face.",
+                                                      f"The recordings could NOT be deleted from the cloud ({HF_REPO}/{name}). "
+                                                      "Delete them by hand on Hugging Face."))

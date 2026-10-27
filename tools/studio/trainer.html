@@ -107,6 +107,7 @@ function renderModels(){
     let h=`<div class="card"><div><b>${esc(m.nombre)}</b> · ${esc((m.inicio||'').slice(0,16).replace('T',' '))} · ${m.epocas} épocas · ${m.donde==='nube'?'nube L40S'+(m.costo_usd!=null?` (US$${m.costo_usd.toFixed(2)})`:''):'esta PC'} · `+
       (m.estado==='listo'?'<span class="ok">listo</span>':m.estado==='corriendo'?'<span class="warn">entrenando…</span>':m.estado==='cancelado'?'<span class="warn">cancelado</span>':`<span class="bad">error</span>`)+`</div>`;
     if(m.error)h+=`<div class="bad">${esc(m.error)}</div>`;
+    if(m.aviso)h+=`<div class="bad">${esc(m.aviso)}</div>`;
     if(m.datos&&m.datos.rechazadas.length)h+=`<details><summary class="hint">${m.datos.rechazadas.length} tomas descartadas</summary>${m.datos.rechazadas.map(r=>`<div class="hint">${esc(r.toma)}: ${esc(r.motivo)}</div>`).join('')}</details>`;
     for(const [enc,r] of Object.entries(m.resultados||{})){
       if(!r.examen)continue;

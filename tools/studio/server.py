@@ -23,6 +23,8 @@ Modules: guion.py (script, tones, takes, picks), pipeline.py (auto-flow, run in
 the autoflow venv), render.py (editing page renders), mictest.py (the booth's
 "Prueba de micrófono"; clips kept in <out>/pruebas/, never used as takes),
 booth.html, editor.html.
+An English studio (entrenamiento/config.json idioma=en — BC's trial, unit voice-booth-bc)
+gets booth.en.html / trainer.en.html, English rounds and English messages here and in train.py.
 One job runs at a time: conversion and SoundCraft share the CPU and GPU.
 Tailnet-only: nothing here is public.
 """
@@ -55,12 +57,22 @@ CTYPES = {"wav": "audio/wav", "flac": "audio/flac", "mp3": "audio/mpeg", "zip": 
 RONDAS = [{"n": 1, "intencion": "Natural, como platicando"},
           {"n": 2, "intencion": "Más expresiva: más sonrisa, más energía"},
           {"n": 3, "intencion": "Más suave y cercana, como al oído"}]
+RONDAS_EN = [{"n": 1, "intencion": "Natural, like talking to a friend"},
+             {"n": 2, "intencion": "More expressive: more smile, more energy"},
+             {"n": 3, "intencion": "Softer and closer, almost a whisper"}]
+ENCODERS_EN = {"contentvec": "contentvec (MIT · recommended)", "spin-v2": "spin-v2"}
 ENT_TAKE = re.compile(r"^ent-(?P<id>[\w-]{1,40}?)-r(?P<r>[123])-\d{6}(?:-\d+)?\.wav$")
 ENT_META_MIN = 20
 
 
 def ent_dir(out):
     return os.path.join(out, "entrenamiento")
+
+
+def lang(out):
+    """The studio folder's language (entrenamiento/config.json): 'en' serves the English pages and messages."""
+    from train import lang_of
+    return lang_of(ent_dir(out))
 
 
 def ent_state(out):
@@ -85,7 +97,7 @@ def ent_state(out):
     for t in tomas:
         if t["id"] != "00-consentimiento":
             latest[(t["id"], t["ronda"])] = t["seconds"]
-    return {"textos": textos, "rondas": RONDAS, "tomas": tomas[::-1], "consentimiento": consent,
+    return {"textos": textos, "rondas": RONDAS_EN if lang(out) == "en" else RONDAS, "tomas": tomas[::-1], "consentimiento": consent,
             "minutos": round(sum(latest.values()) / 60, 1), "meta_min": ENT_META_MIN}
 
 
@@ -207,6 +219,15 @@ class Studio(BaseHTTPRequestHandler):
         with open(path, "rb") as fh:
             shutil.copyfileobj(fh, self.wfile)
 
+    def _t(self, es, en):
+        return en if lang(self.out) == "en" else es
+
+    def _page(self, name):
+        """booth.html / trainer.html, or their .en.html twin in an English studio."""
+        if lang(self.out) == "en":
+            name = name.replace(".html", ".en.html")
+        return self._send(200, open(os.path.join(HERE, name), "rb").read(), "text/html; charset=utf-8")
+
     def _route(self):
         # works whether or not `tailscale serve` strips the /voz prefix
         path = self.path.split("?", 1)[0]
@@ -225,15 +246,15 @@ class Studio(BaseHTTPRequestHandler):
     def do_GET(self):
         route, q = self._route(), self._query()
         if route == "/":
-            return self._send(200, open(os.path.join(HERE, "booth.html"), "rb").read(), "text/html; charset=utf-8")
+            return self._page("booth.html")
         if route == "/entrenar":
-            return self._send(200, open(os.path.join(HERE, "trainer.html"), "rb").read(), "text/html; charset=utf-8")
+            return self._page("trainer.html")
         if route == "/entrenamiento/estado":
             st = ent_state(self.out)
             from train import ENCODERS, LANGS, MIN_MINUTES, folder_config, lang_of
             return self._json({"minutos": st["minutos"], "meta_min": st["meta_min"], "min_min": MIN_MINUTES,
                                "consentimiento": st["consentimiento"], "corriendo": training_active(),
-                               "codificadores": ENCODERS, "examen_textos": LANGS[lang_of(ent_dir(self.out))]["examen"],
+                               "codificadores": ENCODERS_EN if lang(self.out) == "en" else ENCODERS, "examen_textos": LANGS[lang_of(ent_dir(self.out))]["examen"],
                                "modelo": folder_config(ent_dir(self.out)).get("modelo", "quetzaly-v1"),
                                "tomas": len([t for t in st["tomas"] if t["id"] != "00-consentimiento"]),
                                "modelos": train_models(self.out)})
@@ -307,7 +328,7 @@ class Studio(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self._cross_site():
-            return self._json({"error": "solicitud de otro sitio rechazada"}, 403)
+            return self._json({"error": self._t("solicitud de otro sitio rechazada", "cross-site request refused")}, 403)
         route, q = self._route(), self._query()
         if route == "/procesar":
             voice = re.sub(r"[^\w-]", "", q.get("voz", "US_Female_1")) or "none"
@@ -345,29 +366,32 @@ class Studio(BaseHTTPRequestHandler):
             try:
                 b = json.loads(self._body() or b"")
             except ValueError:
-                return self._json({"error": "inválido"}, 400)
+                return self._json({"error": self._t("inválido", "invalid")}, 400)
             from train import ENCODERS
             name = re.sub(r"[^\w-]", "", str(b.get("nombre", "")))[:40]
             if len(name) < 3:
-                return self._json({"error": "ponle un nombre al modelo (letras, números, guiones)"}, 400)
+                return self._json({"error": self._t("ponle un nombre al modelo (letras, números, guiones)",
+                                                    "give the model a name (letters, numbers, dashes)")}, 400)
             if b.get("codificador") not in (*ENCODERS, "comparar"):
-                return self._json({"error": "codificador no permitido"}, 400)
+                return self._json({"error": self._t("codificador no permitido", "encoder not allowed")}, 400)
             if not ent_state(self.out)["consentimiento"]:
-                return self._json({"error": "falta la autorización de la voz (cabina › Entrenar su voz)"}, 403)
+                return self._json({"error": self._t("falta la autorización de la voz (cabina › Entrenar su voz)",
+                                                    "the voice authorization is missing (booth › text 1)")}, 403)
             params = {"nombre": name, "codificador": b["codificador"], "epocas": int(b.get("epocas", 300)),
                       "cada": int(b.get("cada", 25)), "lote": int(b.get("lote", 6)),
                       "donde": "nube" if b.get("donde") == "nube" else "local",
                       "borrar_nube": bool(b.get("borrar_nube", True))}
             with LOCK:
                 if busy():
-                    return self._json({"error": "hay otro proceso corriendo (entrenamiento, render o auto-flow)"}, 409)
+                    return self._json({"error": self._t("hay otro proceso corriendo (entrenamiento, render o auto-flow)",
+                                                        "another job is running (training, render or auto-flow)")}, 409)
                 subprocess.run(["systemctl", "--user", "reset-failed", TRAIN_UNIT], capture_output=True)
                 r = subprocess.run(["systemd-run", "--user", "--unit", TRAIN_UNIT, "--collect",
                                     "-p", f"WorkingDirectory={APPLIO}", "-p", "KillSignal=SIGTERM", "-p", "TimeoutStopSec=900",
                                     AUTOFLOW_PY, os.path.join(HERE, "train.py"), self.out, json.dumps(params)],
                                    capture_output=True, text=True)
             if r.returncode != 0:
-                return self._json({"error": "no se pudo iniciar: " + r.stderr[-200:]}, 500)
+                return self._json({"error": self._t("no se pudo iniciar: ", "could not start: ") + r.stderr[-200:]}, 500)
             print(f"training started: {params}", flush=True)
             return self._json({"started": True, **params}, 202)
         if route == "/entrenamiento/cancelar":
@@ -377,14 +401,16 @@ class Studio(BaseHTTPRequestHandler):
             try:
                 b = json.loads(self._body() or b"")
             except ValueError:
-                return self._json({"error": "inválido"}, 400)
+                return self._json({"error": self._t("inválido", "invalid")}, 400)
             nombre = re.sub(r"\s+", " ", str(b.get("nombre", ""))).strip()[:80]
             st = ent_state(self.out)
             audio = next((t["file"] for t in st["tomas"] if t["id"] == "00-consentimiento"), None)
             if not audio:
-                return self._json({"error": "primero graba la autorización (texto 00) en voz alta"}, 400)
+                return self._json({"error": self._t("primero graba la autorización (texto 00) en voz alta",
+                                                    "first record the authorization (text 1) aloud")}, 400)
             if len(nombre) < 5 or not b.get("acepto"):
-                return self._json({"error": "escribe tu nombre completo y marca que aceptas"}, 400)
+                return self._json({"error": self._t("escribe tu nombre completo y marca que aceptas",
+                                                    "type your full name and tick that you accept")}, 400)
             texto = next((t["texto"] for t in st["textos"] if t["id"] == "00-consentimiento"), "")
             rec = {"nombre": nombre, "aceptado_en": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
                    "texto": texto, "grabacion": audio}
@@ -397,9 +423,10 @@ class Studio(BaseHTTPRequestHandler):
             ronda = q.get("ronda", "1")
             st = ent_state(self.out)
             if scene not in {t["id"] for t in st["textos"]} or ronda not in ("1", "2", "3"):
-                return self._json({"error": "texto o ronda inválidos"}, 400)
+                return self._json({"error": self._t("texto o ronda inválidos", "invalid text or round")}, 400)
             if scene != "00-consentimiento" and not st["consentimiento"]:
-                return self._json({"error": "falta la autorización: graba el texto 00 y acepta por escrito"}, 403)
+                return self._json({"error": self._t("falta la autorización: graba el texto 00 y acepta por escrito",
+                                                    "authorization missing: record text 1 and accept it in writing")}, 403)
             data = self._body(limit=500 * 1024 * 1024)
             if not data or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
                 return self._json({"error": "not a wav"}, 400)
