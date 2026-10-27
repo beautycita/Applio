@@ -47,11 +47,20 @@ ENCODERS = {"contentvec": "contentvec (MIT · recomendado)", "spin-v2": "spin-v2
 # Held out of training and used for the Spanish exam: the texts built on the
 # hardest Spanish sounds, round 3 (falls back to any round that exists).
 EXAM_IDS = ["07-sonidos-r", "08-sonidos-n-ll", "09-sonidos-j-x"]
-SOUNDS = {"rr / r inicial": r"(rr|^r)", "ñ": r"ñ", "ll / y": r"(ll|y)", "j / g / x": r"(j|g[ei]|x)"}
+SOUNDS = {
+    "rr / r inicial": r"(rr|^r)",
+    "ñ": r"ñ",
+    "ll / y": r"(ll|y)",
+    "j / g / x": r"(j|g[ei]|x)",
+}
 LANGS = {
     "es": {"nombre": "español", "examen": EXAM_IDS, "sonidos": SOUNDS, "nube": "nube"},
-    "en": {"nombre": "inglés", "examen": ["07-sounds-r-l", "08-sounds-th", "09-sounds-v-w"],
-           "sonidos": {"r / l": r"[rl]", "th": r"th", "v / w": r"[vw]"}, "nube": "cloud"},
+    "en": {
+        "nombre": "inglés",
+        "examen": ["07-sounds-r-l", "08-sounds-th", "09-sounds-v-w"],
+        "sonidos": {"r / l": r"[rl]", "th": r"th", "v / w": r"[vw]"},
+        "nube": "cloud",
+    },
 }
 
 
@@ -67,6 +76,8 @@ def lang_of(ent):
     """The training folder's language: 'es' unless its config.json names another one in LANGS."""
     code = folder_config(ent).get("idioma", "es")
     return code if code in LANGS else "es"
+
+
 MIN_MINUTES = 5.0
 
 
@@ -81,7 +92,12 @@ class Job:
             self.state = {}
 
     def update(self, **kw):
-        self.state.update(kw, actualizado=datetime.datetime.now().astimezone().isoformat(timespec="seconds"))
+        self.state.update(
+            kw,
+            actualizado=datetime.datetime.now()
+            .astimezone()
+            .isoformat(timespec="seconds"),
+        )
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(self.state, fh, ensure_ascii=False, indent=1)
@@ -94,8 +110,13 @@ class Job:
 
 def applio(args, job=None, parse=None):
     """Run core.py; stream its output so training progress can be read."""
-    proc = subprocess.Popen([APY, "core.py", *args], cwd=APPLIO, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.Popen(
+        [APY, "core.py", *args],
+        cwd=APPLIO,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
     tail = []
     for line in proc.stdout:
         line = line.rstrip()
@@ -110,6 +131,7 @@ def applio(args, job=None, parse=None):
 
 def norm_words(text):
     import unicodedata
+
     text = text.lower()
     # keep ñ, drop other accents, so «año» stays distinct from «ano»
     text = "".join(c if c == "ñ" else unicodedata.normalize("NFD", c)[0] for c in text)
@@ -119,6 +141,7 @@ def norm_words(text):
 def wer(ref, hyp):
     """Word error rate and the reference words that were missed."""
     import difflib
+
     sm = difflib.SequenceMatcher(None, ref, hyp, autojunk=False)
     errors, missed = 0, set()
     for tag, a1, a2, b1, b2 in sm.get_opcodes():
@@ -146,22 +169,36 @@ HF_FLAVOR, HF_PRICE_H = "l40sx1", 1.80
 def hf(*args, capture=True):
     r = subprocess.run(["hf", *args], capture_output=capture, text=True)
     if r.returncode != 0:
-        raise RuntimeError(f"hf {args[0]} {args[1] if len(args) > 1 else ''} falló: {(r.stderr or r.stdout)[-300:]}")
+        raise RuntimeError(
+            f"hf {args[0]} {args[1] if len(args) > 1 else ''} falló: {(r.stderr or r.stdout)[-300:]}"
+        )
     return r.stdout
 
 
 def cloud_delete(name):
     """Remove her recordings and the trained files from the cloud repo (consent: deletable on request)."""
     from huggingface_hub import HfApi
+
     api = HfApi()
-    if not any(f.startswith(name + "/") for f in api.list_repo_files(HF_REPO, repo_type="dataset")):
+    if not any(
+        f.startswith(name + "/")
+        for f in api.list_repo_files(HF_REPO, repo_type="dataset")
+    ):
         return None  # nothing was uploaded (or it is already gone)
-    for attempt in range(10):  # retried: a network blip must not leave her recordings in the cloud
+    for attempt in range(
+        10
+    ):  # retried: a network blip must not leave her recordings in the cloud
         try:
-            api.delete_folder(path_in_repo=name, repo_id=HF_REPO, repo_type="dataset",
-                              commit_message=f"delete {name}")
+            api.delete_folder(
+                path_in_repo=name,
+                repo_id=HF_REPO,
+                repo_type="dataset",
+                commit_message=f"delete {name}",
+            )
             return True
-        except Exception as exc:  # noqa: BLE001 — the caller reports it; the local model stands
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 — the caller reports it; the local model stands
             print(f"cloud delete failed ({attempt + 1}/10): {exc}", flush=True)
             time.sleep(30)
     return False
@@ -169,35 +206,102 @@ def cloud_delete(name):
 
 def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
     """Upload the Spanish-checked dataset, train on an L40S, bring every saved epoch back."""
-    consent = json.load(open(os.path.join(folder, "entrenamiento", "consentimiento.json"), encoding="utf-8"))
-    if LANGS[lang_of(os.path.join(folder, "entrenamiento"))]["nube"] not in consent.get("texto", "").lower():
-        raise RuntimeError("su autorización no cubre el procesamiento en la nube; entrena en esta PC "
-                           "o graba de nuevo la autorización (el texto 1 ya lo menciona)")
+    consent = json.load(
+        open(
+            os.path.join(folder, "entrenamiento", "consentimiento.json"),
+            encoding="utf-8",
+        )
+    )
+    if (
+        LANGS[lang_of(os.path.join(folder, "entrenamiento"))]["nube"]
+        not in consent.get("texto", "").lower()
+    ):
+        raise RuntimeError(
+            "su autorización no cubre el procesamiento en la nube; entrena en esta PC "
+            "o graba de nuevo la autorización (el texto 1 ya lo menciona)"
+        )
     from huggingface_hub import HfApi
+
     api = HfApi()
     api.create_repo(HF_REPO, repo_type="dataset", private=True, exist_ok=True)
     if not api.repo_info(HF_REPO, repo_type="dataset").private:
         raise RuntimeError(f"{HF_REPO} no es privado: no se suben grabaciones")
     dataset = os.path.join(job.dir, "dataset")
-    job.step("subir", f"[{enc}] Subiendo {len(os.listdir(dataset))} lecturas al repositorio privado…")
-    api.upload_folder(folder_path=dataset, path_in_repo=f"{name}/dataset", repo_id=HF_REPO, repo_type="dataset",
-                      commit_message=f"dataset {name}", delete_patterns="*.wav")
-    ref = subprocess.run(["git", "-C", APPLIO, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    script = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud_job.sh"), encoding="utf-8").read()
-    hours = max(1, round(epochs / 60 + 1))  # generous ceiling; billing is per minute of real use
-    out = hf("jobs", "run", "--flavor", HF_FLAVOR, "--timeout", f"{hours}h", "--detach", "--secrets", "HF_TOKEN",
-             "-e", f"REPO={HF_REPO}", "-e", f"RUN={name}", "-e", f"MODEL={model}", "-e", f"ENC={enc}",
-             "-e", f"EPOCHS={epochs}", "-e", f"EVERY={every}", "-e", f"BATCH={batch}", "-e", f"APPLIO_REF={ref}",
-             "--label", "beautycita=voz", "python:3.12", "/bin/sh", "-c", script)
+    job.step(
+        "subir",
+        f"[{enc}] Subiendo {len(os.listdir(dataset))} lecturas al repositorio privado…",
+    )
+    api.upload_folder(
+        folder_path=dataset,
+        path_in_repo=f"{name}/dataset",
+        repo_id=HF_REPO,
+        repo_type="dataset",
+        commit_message=f"dataset {name}",
+        delete_patterns="*.wav",
+    )
+    ref = subprocess.run(
+        ["git", "-C", APPLIO, "rev-parse", "HEAD"], capture_output=True, text=True
+    ).stdout.strip()
+    script = open(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud_job.sh"),
+        encoding="utf-8",
+    ).read()
+    hours = max(
+        1, round(epochs / 60 + 1)
+    )  # generous ceiling; billing is per minute of real use
+    out = hf(
+        "jobs",
+        "run",
+        "--flavor",
+        HF_FLAVOR,
+        "--timeout",
+        f"{hours}h",
+        "--detach",
+        "--secrets",
+        "HF_TOKEN",
+        "-e",
+        f"REPO={HF_REPO}",
+        "-e",
+        f"RUN={name}",
+        "-e",
+        f"MODEL={model}",
+        "-e",
+        f"ENC={enc}",
+        "-e",
+        f"EPOCHS={epochs}",
+        "-e",
+        f"EVERY={every}",
+        "-e",
+        f"BATCH={batch}",
+        "-e",
+        f"APPLIO_REF={ref}",
+        "--label",
+        "beautycita=voz",
+        "python:3.12",
+        "/bin/sh",
+        "-c",
+        script,
+    )
     job_id = re.findall(r"[0-9a-f]{24}", out)
     if not job_id:
         raise RuntimeError("no se obtuvo el id del trabajo en la nube: " + out[-200:])
     job_id = job_id[-1]
     t0 = time.time()
-    job.step("nube", f"[{enc}] Trabajo en la nube iniciado (L40S): instalando…", nube_job=job_id, nube_inicio=t0)
-    labels = {"instalar": "Instalando Applio en la nube", "datos": "Bajando las lecturas", "preparar": "Preparando el audio",
-              "rasgos": "Extrayendo tono y rasgos", "entrenar": "Entrenando", "indice": "Construyendo el índice",
-              "subir": "Subiendo el modelo"}
+    job.step(
+        "nube",
+        f"[{enc}] Trabajo en la nube iniciado (L40S): instalando…",
+        nube_job=job_id,
+        nube_inicio=t0,
+    )
+    labels = {
+        "instalar": "Instalando Applio en la nube",
+        "datos": "Bajando las lecturas",
+        "preparar": "Preparando el audio",
+        "rasgos": "Extrayendo tono y rasgos",
+        "entrenar": "Entrenando",
+        "indice": "Construyendo el índice",
+        "subir": "Subiendo el modelo",
+    }
     misses = 0
     try:
         while True:
@@ -211,8 +315,13 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
                 # the cloud, so keep waiting; only 10 minutes without an answer ends the wait
                 misses += 1
                 if misses >= 20:
-                    raise RuntimeError(f"sin respuesta de Hugging Face por 10 min: {exc}") from exc
-                job.step("nube", f"[{enc}] Sin conexión con la nube, reintentando ({misses})…")
+                    raise RuntimeError(
+                        f"sin respuesta de Hugging Face por 10 min: {exc}"
+                    ) from exc
+                job.step(
+                    "nube",
+                    f"[{enc}] Sin conexión con la nube, reintentando ({misses})…",
+                )
                 continue
             info = info[0] if isinstance(info, list) else info
             stage = (info.get("status") or {}).get("stage", "")
@@ -222,11 +331,19 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
             if epochs_seen:
                 e = epochs_seen[-1]
                 rate = (time.time() - t0) / max(1, e)  # includes install; refined below
-                job.step("entrenar", f"[{enc}] Nube · época {e} de {epochs} · US${spent:.2f} hasta ahora", epoca=e,
-                         restante_min=round(rate * (epochs - e) / 60), costo_usd=round(spent, 2))
+                job.step(
+                    "entrenar",
+                    f"[{enc}] Nube · época {e} de {epochs} · US${spent:.2f} hasta ahora",
+                    epoca=e,
+                    restante_min=round(rate * (epochs - e) / 60),
+                    costo_usd=round(spent, 2),
+                )
             elif marks:
-                job.step(marks[-1] if marks[-1] in labels else "nube",
-                         f"[{enc}] Nube · {labels.get(marks[-1], marks[-1])}… · US${spent:.2f}", costo_usd=round(spent, 2))
+                job.step(
+                    marks[-1] if marks[-1] in labels else "nube",
+                    f"[{enc}] Nube · {labels.get(marks[-1], marks[-1])}… · US${spent:.2f}",
+                    costo_usd=round(spent, 2),
+                )
             if stage in ("COMPLETED", "ERROR", "CANCELED", "DELETED"):
                 break
         if stage != "COMPLETED" or "@@ listo" not in log:
@@ -235,16 +352,28 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
     except BaseException:
         # any way out of the wait (cancel, error, a crash here): stop the billing
         for _ in range(10):  # the network that broke the wait may still be down
-            if subprocess.run(["hf", "jobs", "cancel", job_id], capture_output=True).returncode == 0:
+            if (
+                subprocess.run(
+                    ["hf", "jobs", "cancel", job_id], capture_output=True
+                ).returncode
+                == 0
+            ):
                 break
             time.sleep(30)
         raise
     spent = (time.time() - t0) / 3600 * HF_PRICE_H
-    job.step("bajar", f"[{enc}] Bajando las épocas entrenadas… (costo de nube ≈ US${spent:.2f})", costo_usd=round(spent, 2))
+    job.step(
+        "bajar",
+        f"[{enc}] Bajando las épocas entrenadas… (costo de nube ≈ US${spent:.2f})",
+        costo_usd=round(spent, 2),
+    )
     os.makedirs(logs, exist_ok=True)
     from huggingface_hub import snapshot_download
+
     tmp = os.path.join(job.dir, "nube-" + enc)
-    snapshot_download(HF_REPO, repo_type="dataset", allow_patterns=[f"{name}/{enc}/*"], local_dir=tmp)
+    snapshot_download(
+        HF_REPO, repo_type="dataset", allow_patterns=[f"{name}/{enc}/*"], local_dir=tmp
+    )
     for f in os.listdir(os.path.join(tmp, name, enc)):
         shutil.move(os.path.join(tmp, name, enc, f), os.path.join(logs, f))
     shutil.rmtree(tmp, ignore_errors=True)
@@ -252,8 +381,14 @@ def cloud_train(job, folder, name, model, enc, epochs, every, batch, logs):
 
 def main(folder, params):
     folder = os.path.abspath(folder)
-    name = re.sub(r"[^\w-]", "", params.get("nombre", "quetzaly-v1"))[:40] or "quetzaly-v1"
-    encoders = ["contentvec", "spin-v2"] if params.get("codificador") == "comparar" else [params.get("codificador", "contentvec")]
+    name = (
+        re.sub(r"[^\w-]", "", params.get("nombre", "quetzaly-v1"))[:40] or "quetzaly-v1"
+    )
+    encoders = (
+        ["contentvec", "spin-v2"]
+        if params.get("codificador") == "comparar"
+        else [params.get("codificador", "contentvec")]
+    )
     if any(e not in ENCODERS for e in encoders):
         raise SystemExit("codificador no permitido")
     epochs = max(5, min(1000, int(params.get("epocas", 300))))
@@ -261,21 +396,41 @@ def main(folder, params):
     batch = max(1, min(16, int(params.get("lote", 6))))
     where = "nube" if params.get("donde") == "nube" else "local"
     if where == "nube":
-        batch = max(batch, 12)  # 48 GB on the L40S: a larger batch, fewer steps per epoch
+        batch = max(
+            batch, 12
+        )  # 48 GB on the L40S: a larger batch, fewer steps per epoch
     job = Job(folder, name)
-    job.update(nombre=name, codificadores=encoders, epocas=epochs, cada=every, lote=batch, estado="corriendo", donde=where,
-               inicio=datetime.datetime.now().astimezone().isoformat(timespec="seconds"), error=None, resultados={})
+    job.update(
+        nombre=name,
+        codificadores=encoders,
+        epocas=epochs,
+        cada=every,
+        lote=batch,
+        estado="corriendo",
+        donde=where,
+        inicio=datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+        error=None,
+        resultados={},
+    )
 
     ent = os.path.join(folder, "entrenamiento")
     lang = lang_of(ent)
     L = LANGS[lang]
     job.update(idioma=lang)
     if not os.path.isfile(os.path.join(ent, "consentimiento.json")):
-        raise SystemExit("falta la autorización firmada de la voz (cabina › Entrenar su voz › texto 1)")
-    textos = {t["id"]: t["texto"] for t in json.load(open(os.path.join(ent, "textos.json"), encoding="utf-8"))}
+        raise SystemExit(
+            "falta la autorización firmada de la voz (cabina › Entrenar su voz › texto 1)"
+        )
+    textos = {
+        t["id"]: t["texto"]
+        for t in json.load(open(os.path.join(ent, "textos.json"), encoding="utf-8"))
+    }
 
     # ---- 1. datos: clean, check Spanish, hold out the exam
-    takes = sorted((f for f in os.listdir(ent) if ENT_TAKE.match(f)), key=lambda f: os.path.getmtime(os.path.join(ent, f)))
+    takes = sorted(
+        (f for f in os.listdir(ent) if ENT_TAKE.match(f)),
+        key=lambda f: os.path.getmtime(os.path.join(ent, f)),
+    )
     latest = {}
     for f in takes:
         m = ENT_TAKE.match(f)
@@ -287,9 +442,12 @@ def main(folder, params):
     for eid in L["examen"]:
         for r in (3, 2, 1):
             if (eid, r) in latest and sum(1 for k in latest if k[0] == eid) > 1:
-                exam[eid] = latest[(eid, r)]  # only hold out when another round of it stays in training
+                exam[eid] = latest[
+                    (eid, r)
+                ]  # only hold out when another round of it stays in training
                 break
     from faster_whisper import WhisperModel
+
     job.step("datos", f"Cargando el reconocimiento de voz en {L['nombre']}…")
     asr = WhisperModel("small", device="cpu", compute_type="int8")
     work = os.path.join(job.dir, "trabajo")
@@ -302,41 +460,111 @@ def main(folder, params):
     os.makedirs(examdir)
     accepted, rejected, seconds = [], [], 0.0
     for i, ((tid, r), f) in enumerate(sorted(latest.items())):
-        job.step("datos", f"Revisando que esté en {L['nombre']}: {f} ({i + 1}/{len(latest)})")
+        job.step(
+            "datos", f"Revisando que esté en {L['nombre']}: {f} ({i + 1}/{len(latest)})"
+        )
         cleaned = pl.clean(os.path.join(ent, f), work)
         import numpy as np
-        audio = np.frombuffer(pl.run_bytes(["ffmpeg", "-v", "error", "-i", cleaned, "-ac", "1", "-ar", "16000",
-                                             "-f", "f32le", "-"]), np.float32)
-        _, info = asr.transcribe(audio[:16000 * 30], beam_size=1)
+
+        audio = np.frombuffer(
+            pl.run_bytes(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-i",
+                    cleaned,
+                    "-ac",
+                    "1",
+                    "-ar",
+                    "16000",
+                    "-f",
+                    "f32le",
+                    "-",
+                ]
+            ),
+            np.float32,
+        )
+        _, info = asr.transcribe(audio[: 16000 * 30], beam_size=1)
         # Spanish must be the language heard (a real voice scores 90 %+; the bar
         # is lower so a short or flat reading is not thrown away for nothing)
         if info.language != lang or info.language_probability < 0.5:
-            rejected.append({"toma": f, "motivo": f"no parece {L['nombre']} ({info.language} {info.language_probability:.0%})"})
+            rejected.append(
+                {
+                    "toma": f,
+                    "motivo": f"no parece {L['nombre']} ({info.language} {info.language_probability:.0%})",
+                }
+            )
             continue
         dest = examdir if exam.get(tid) == f else dataset
         out = os.path.join(dest, f)
-        pl.run(["ffmpeg", "-v", "error", "-y", "-i", cleaned, "-af", "loudnorm=I=-20:TP=-3:LRA=11",
-                "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", out])
+        pl.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-i",
+                cleaned,
+                "-af",
+                "loudnorm=I=-20:TP=-3:LRA=11",
+                "-ac",
+                "1",
+                "-ar",
+                "48000",
+                "-c:a",
+                "pcm_s16le",
+                out,
+            ]
+        )
         if dest == dataset:
             seconds += pl.duration(out)
             accepted.append(f)
     minutes = round(seconds / 60, 1)
-    job.update(datos={"minutos": minutes, "aceptadas": len(accepted), "rechazadas": rejected,
-                      "examen": sorted(os.listdir(examdir))})
+    job.update(
+        datos={
+            "minutos": minutes,
+            "aceptadas": len(accepted),
+            "rechazadas": rejected,
+            "examen": sorted(os.listdir(examdir)),
+        }
+    )
     if minutes < MIN_MINUTES:
-        raise SystemExit(f"solo hay {minutes} min en {L['nombre']} para entrenar; hacen falta al menos {MIN_MINUTES:g} (ideal 20)")
+        raise SystemExit(
+            f"solo hay {minutes} min en {L['nombre']} para entrenar; hacen falta al menos {MIN_MINUTES:g} (ideal 20)"
+        )
 
     # her real voice through the same Spanish transcription: the bar the model is measured against
     exam_refs = {}
     for f in sorted(os.listdir(examdir)):
         tid = ENT_TAKE.match(f)["id"]
         exam_refs[f] = norm_words(textos[tid])
+
     def transcribe(path):
         import numpy as np  # decode with ffmpeg: faster-whisper's own decoder breaks on this PyAV
-        audio = np.frombuffer(pl.run_bytes(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "16000",
-                                             "-f", "f32le", "-"]), np.float32)
+
+        audio = np.frombuffer(
+            pl.run_bytes(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-i",
+                    path,
+                    "-ac",
+                    "1",
+                    "-ar",
+                    "16000",
+                    "-f",
+                    "f32le",
+                    "-",
+                ]
+            ),
+            np.float32,
+        )
         segs, _ = asr.transcribe(audio, language=lang, beam_size=5, vad_filter=True)
         return norm_words(" ".join(s.text for s in segs))
+
     baseline = {}
     if exam_refs:
         job.step("datos", f"Midiendo su voz real en el examen de {L['nombre']}…")
@@ -359,13 +587,54 @@ def main(folder, params):
             cloud_train(job, folder, name, model, enc, epochs, every, batch, logs)
         else:
             # ---- 2-3. Applio preprocess + extract (rmvpe pitch, the chosen encoder)
-            job.step("preparar", f"[{enc}] Cortando y preparando {minutes} min de audio…", resultados=job.state["resultados"])
-            applio(["preprocess", "--model-name", model, "--dataset-path", dataset, "--sample-rate", "48000",
-                    "--cpu-cores", "6", "--cut-preprocess", "Automatic", "--chunk-len", "3.0", "--overlap-len", "0.3",
-                    "--normalization-mode", "post"])
-            job.step("rasgos", f"[{enc}] Extrayendo tono (rmvpe) y rasgos de voz ({enc})…")
-            applio(["extract", "--model-name", model, "--f0-method", "rmvpe", "--cpu-cores", "6", "--gpu", "0",
-                    "--sample-rate", "48000", "--embedder-model", enc, "--include-mutes", "2"])
+            job.step(
+                "preparar",
+                f"[{enc}] Cortando y preparando {minutes} min de audio…",
+                resultados=job.state["resultados"],
+            )
+            applio(
+                [
+                    "preprocess",
+                    "--model-name",
+                    model,
+                    "--dataset-path",
+                    dataset,
+                    "--sample-rate",
+                    "48000",
+                    "--cpu-cores",
+                    "6",
+                    "--cut-preprocess",
+                    "Automatic",
+                    "--chunk-len",
+                    "3.0",
+                    "--overlap-len",
+                    "0.3",
+                    "--normalization-mode",
+                    "post",
+                ]
+            )
+            job.step(
+                "rasgos", f"[{enc}] Extrayendo tono (rmvpe) y rasgos de voz ({enc})…"
+            )
+            applio(
+                [
+                    "extract",
+                    "--model-name",
+                    model,
+                    "--f0-method",
+                    "rmvpe",
+                    "--cpu-cores",
+                    "6",
+                    "--gpu",
+                    "0",
+                    "--sample-rate",
+                    "48000",
+                    "--embedder-model",
+                    enc,
+                    "--include-mutes",
+                    "2",
+                ]
+            )
 
             # ---- 4. train
 
@@ -374,14 +643,42 @@ def main(folder, params):
                 if m:
                     e = int(m[1])
                     rate = (time.time() - t0) / max(1, e)
-                    job.step("entrenar", f"[{enc}] Época {e} de {epochs}", epoca=e,
-                             restante_min=round(rate * (epochs - e) / 60))
+                    job.step(
+                        "entrenar",
+                        f"[{enc}] Época {e} de {epochs}",
+                        epoca=e,
+                        restante_min=round(rate * (epochs - e) / 60),
+                    )
 
-            job.step("entrenar", f"[{enc}] Entrenando {epochs} épocas (guarda cada {every})…", epoca=0)
-            applio(["train", "--model-name", model, "--vocoder", "HiFi-GAN", "--save-every-epoch", str(every),
-                    "--save-only-latest", "--total-epoch", str(epochs), "--sample-rate", "48000",
-                    "--batch-size", str(batch), "--gpu", "0", "--pretrained", "--index-algorithm", "Auto"],
-                   parse=progress)
+            job.step(
+                "entrenar",
+                f"[{enc}] Entrenando {epochs} épocas (guarda cada {every})…",
+                epoca=0,
+            )
+            applio(
+                [
+                    "train",
+                    "--model-name",
+                    model,
+                    "--vocoder",
+                    "HiFi-GAN",
+                    "--save-every-epoch",
+                    str(every),
+                    "--save-only-latest",
+                    "--total-epoch",
+                    str(epochs),
+                    "--sample-rate",
+                    "48000",
+                    "--batch-size",
+                    str(batch),
+                    "--gpu",
+                    "0",
+                    "--pretrained",
+                    "--index-algorithm",
+                    "Auto",
+                ],
+                parse=progress,
+            )
 
             # ---- 5. index
             job.step("indice", f"[{enc}] Construyendo el índice…")
@@ -389,8 +686,10 @@ def main(folder, params):
         index = next(iter(glob.glob(os.path.join(logs, "*.index"))), "")
 
         # ---- 6. the Spanish exam, every saved epoch
-        weights = sorted(glob.glob(os.path.join(logs, f"{model}_*e_*s.pth")),
-                         key=lambda p: int(re.search(r"_(\d+)e_", p)[1]))
+        weights = sorted(
+            glob.glob(os.path.join(logs, f"{model}_*e_*s.pth")),
+            key=lambda p: int(re.search(r"_(\d+)e_", p)[1]),
+        )
         if not weights:
             raise RuntimeError("el entrenamiento no guardó ningún modelo")
         scores = []
@@ -403,17 +702,47 @@ def main(folder, params):
             ref_all, hyp_all = [], []
             for f, ref in exam_refs.items():
                 dst = os.path.join(samples, f"e{e}-{f}")
-                applio(["infer", "--input-path", os.path.join(examdir, f), "--output-path", dst, "--pth-path", w,
-                        "--index-path", index, "--pitch", "0", "--index-rate", "0.6", "--protect", "0.4",
-                        "--volume-envelope", "1", "--f0-method", "rmvpe", "--embedder-model", enc,
-                        "--export-format", "WAV"])
+                applio(
+                    [
+                        "infer",
+                        "--input-path",
+                        os.path.join(examdir, f),
+                        "--output-path",
+                        dst,
+                        "--pth-path",
+                        w,
+                        "--index-path",
+                        index,
+                        "--pitch",
+                        "0",
+                        "--index-rate",
+                        "0.6",
+                        "--protect",
+                        "0.4",
+                        "--volume-envelope",
+                        "1",
+                        "--f0-method",
+                        "rmvpe",
+                        "--embedder-model",
+                        enc,
+                        "--export-format",
+                        "WAV",
+                    ]
+                )
                 ref_all += ref
                 hyp_all += transcribe(dst)
-            s = exam_scores(ref_all, hyp_all, L["sonidos"]) if exam_refs else {"total": None}
+            s = (
+                exam_scores(ref_all, hyp_all, L["sonidos"])
+                if exam_refs
+                else {"total": None}
+            )
             scores.append({"epoca": e, "pth": os.path.basename(w), **s})
             res["examen"] = scores
             job.update(resultados=job.state["resultados"])
-        best = min(scores, key=lambda s: (s["total"] if s["total"] is not None else 0, -s["epoca"]))
+        best = min(
+            scores,
+            key=lambda s: (s["total"] if s["total"] is not None else 0, -s["epoca"]),
+        )
         if not exam_refs:
             best = scores[-1]  # no held-out text: the last epoch
         # keep only the winner's samples
@@ -424,19 +753,52 @@ def main(folder, params):
         # ---- 7. install: the winner only, with what the editor needs to use it
         for p in glob.glob(os.path.join(logs, "*.pth")):
             if os.path.basename(p) != best["pth"]:
-                os.remove(p)  # other epochs, and Applio's G_/D_ training checkpoints (~1.3 GB)
-        studio = {"nombre": model, "pth": best["pth"], "index": os.path.basename(index), "codificador": enc,
-                  "idioma": lang, "epoca": best["epoca"], "examen": best, "examen_base": baseline,
-                  "minutos": minutes, "entrenado": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-                  "consentimiento": json.load(open(os.path.join(ent, "consentimiento.json"), encoding="utf-8"))}
-        json.dump(studio, open(os.path.join(logs, "studio.json"), "w"), ensure_ascii=False, indent=1)
-        res.update(etapa="listo", ganador=best, modelo=model, horas=round((time.time() - t0) / 3600, 2))
+                os.remove(
+                    p
+                )  # other epochs, and Applio's G_/D_ training checkpoints (~1.3 GB)
+        studio = {
+            "nombre": model,
+            "pth": best["pth"],
+            "index": os.path.basename(index),
+            "codificador": enc,
+            "idioma": lang,
+            "epoca": best["epoca"],
+            "examen": best,
+            "examen_base": baseline,
+            "minutos": minutes,
+            "entrenado": datetime.datetime.now()
+            .astimezone()
+            .isoformat(timespec="seconds"),
+            "consentimiento": json.load(
+                open(os.path.join(ent, "consentimiento.json"), encoding="utf-8")
+            ),
+        }
+        json.dump(
+            studio,
+            open(os.path.join(logs, "studio.json"), "w"),
+            ensure_ascii=False,
+            indent=1,
+        )
+        res.update(
+            etapa="listo",
+            ganador=best,
+            modelo=model,
+            horas=round((time.time() - t0) / 3600, 2),
+        )
         job.update(resultados=job.state["resultados"])
 
     done = [r for r in job.state["resultados"].values() if r.get("etapa") == "listo"]
-    winner = min(done, key=lambda r: r["ganador"]["total"] if r["ganador"]["total"] is not None else 0)
-    job.step("listo", f"Listo. Mejor modelo: {winner['modelo']} (época {winner['ganador']['epoca']}). "
-             f"Ya aparece en la mesa de edición.", estado="listo", ganador=winner["modelo"])
+    winner = min(
+        done,
+        key=lambda r: r["ganador"]["total"] if r["ganador"]["total"] is not None else 0,
+    )
+    job.step(
+        "listo",
+        f"Listo. Mejor modelo: {winner['modelo']} (época {winner['ganador']['epoca']}). "
+        f"Ya aparece en la mesa de edición.",
+        estado="listo",
+        ganador=winner["modelo"],
+    )
     shutil.rmtree(work, ignore_errors=True)
 
 
@@ -445,15 +807,21 @@ if __name__ == "__main__":
 
     def _stop(*_):  # "Cancelar" on the page stops the unit with SIGTERM
         raise KeyboardInterrupt
+
     signal.signal(signal.SIGTERM, _stop)
     folder, params = os.path.abspath(sys.argv[1]), json.loads(sys.argv[2])
-    name = re.sub(r"[^\w-]", "", params.get("nombre", "quetzaly-v1"))[:40] or "quetzaly-v1"
+    name = (
+        re.sub(r"[^\w-]", "", params.get("nombre", "quetzaly-v1"))[:40] or "quetzaly-v1"
+    )
     try:
         main(folder, params)
     except BaseException as exc:
         j = Job(folder, name)
-        j.update(estado="cancelado" if isinstance(exc, KeyboardInterrupt) else "error",
-                 error=str(exc)[-600:], etapa=j.state.get("etapa"))
+        j.update(
+            estado="cancelado" if isinstance(exc, KeyboardInterrupt) else "error",
+            error=str(exc)[-600:],
+            etapa=j.state.get("etapa"),
+        )
         raise
     finally:
         # Her recordings leave the cloud on EVERY exit when asked — done, failed or cancelled.
@@ -466,7 +834,14 @@ if __name__ == "__main__":
             if ok is None:
                 pass
             elif ok:
-                j.update(nube_borrado=True, msg=(j.state.get("msg") or "") + " Grabaciones borradas de la nube.")
+                j.update(
+                    nube_borrado=True,
+                    msg=(j.state.get("msg") or "")
+                    + " Grabaciones borradas de la nube.",
+                )
             else:
-                j.update(nube_borrado=False, aviso=f"NO se pudieron borrar las grabaciones de la nube ({HF_REPO}/{name}). "
-                         "Bórralas a mano en Hugging Face.")
+                j.update(
+                    nube_borrado=False,
+                    aviso=f"NO se pudieron borrar las grabaciones de la nube ({HF_REPO}/{name}). "
+                    "Bórralas a mano en Hugging Face.",
+                )

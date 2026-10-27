@@ -53,9 +53,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("track", help="backing track to sing over")
     ap.add_argument("--mic", default=DEFAULT_MIC)
-    ap.add_argument("--phones", default=DEFAULT_PHONES, help="PipeWire sink for playback")
+    ap.add_argument(
+        "--phones", default=DEFAULT_PHONES, help="PipeWire sink for playback"
+    )
     ap.add_argument("--out-dir", default=os.path.join("assets", "audios"))
-    ap.add_argument("--start", type=float, default=0.0, help="start the track at this second")
+    ap.add_argument(
+        "--start", type=float, default=0.0, help="start the track at this second"
+    )
     ap.add_argument("--seconds", type=float, default=None, help="only record this long")
     args = ap.parse_args()
 
@@ -64,25 +68,60 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmp:
         track = os.path.join(tmp, "track.wav")
-        trim = ["-ss", str(args.start)] + (["-t", str(args.seconds)] if args.seconds else [])
+        trim = ["-ss", str(args.start)] + (
+            ["-t", str(args.seconds)] if args.seconds else []
+        )
         subprocess.run(
-            ["ffmpeg", "-v", "error", "-y", *trim, "-i", args.track, "-ar", str(RATE), "-ac", "2", track],
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                *trim,
+                "-i",
+                args.track,
+                "-ar",
+                str(RATE),
+                "-ac",
+                "2",
+                track,
+            ],
             check=True,
         )
         mic_raw = os.path.join(tmp, "mic.wav")
         feed_raw = os.path.join(tmp, "feed.wav")
         recorder = subprocess.Popen(
             [
-                "ffmpeg", "-v", "error", "-y",
-                "-f", "pulse", "-i", args.mic,
-                "-f", "pulse", "-i", f"{args.phones}.monitor",
-                "-map", "0:a", "-ar", str(RATE), mic_raw,
-                "-map", "1:a", "-ar", str(RATE), feed_raw,
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "pulse",
+                "-i",
+                args.mic,
+                "-f",
+                "pulse",
+                "-i",
+                f"{args.phones}.monitor",
+                "-map",
+                "0:a",
+                "-ar",
+                str(RATE),
+                mic_raw,
+                "-map",
+                "1:a",
+                "-ar",
+                str(RATE),
+                feed_raw,
             ],
             stdin=subprocess.PIPE,
         )
         time.sleep(1.0)
-        print("Recording. The track starts now; sing along. Ctrl+C stops early.", flush=True)
+        print(
+            "Recording. The track starts now; sing along. Ctrl+C stops early.",
+            flush=True,
+        )
         try:
             subprocess.run(["pw-play", "--target", args.phones, track], check=True)
             time.sleep(0.5)
@@ -99,7 +138,9 @@ def main():
         if len(voice) < len(reference):
             voice = np.pad(voice, (0, len(reference) - len(voice)))
         peak = np.max(np.abs(voice)) or 1.0
-        sf.write(out_path, (voice / peak * 0.9).astype(np.float32), RATE, subtype="PCM_16")
+        sf.write(
+            out_path, (voice / peak * 0.9).astype(np.float32), RATE, subtype="PCM_16"
+        )
 
     print(f"Saved {out_path}  (track found {offset / RATE:.3f}s into the recording)")
 

@@ -114,8 +114,9 @@ import assets.themes.loadThemes as loadThemes
 
 ui_theme = loadThemes.load_theme() or "ParityError/Interstellar"
 
-STUDIO_CSS = pathlib.Path(os.path.join(now_dir, "assets", "themes", "studio.css")).read_text()
-
+STUDIO_CSS = pathlib.Path(
+    os.path.join(now_dir, "assets", "themes", "studio.css")
+).read_text()
 
 
 def device_badge() -> str:
@@ -131,8 +132,7 @@ def device_badge() -> str:
 
 # Define Gradio interface
 with gr.Blocks(title="ReMiFaSol") as ReMiFaSol:
-    gr.HTML(
-        f"""
+    gr.HTML(f"""
         <header class="rmfs-header">
           <div class="rmfs-brand">
             <span class="rmfs-notes">♩ ♪ ♫</span>
@@ -144,8 +144,7 @@ with gr.Blocks(title="ReMiFaSol") as ReMiFaSol:
             <a href="https://github.com/beautycita/ReMiFaSol" target="_blank">GitHub</a>
           </nav>
         </header>
-        """
-    )
+        """)
     with gr.Tab(i18n("Inference")):
         inference_tab()
 
@@ -180,7 +179,6 @@ with gr.Blocks(title="ReMiFaSol") as ReMiFaSol:
         report_tab()
 
 
-
 def launch_gradio(server_name: str, server_port: int) -> None:
     app, _, _ = ReMiFaSol.launch(
         favicon_path="assets/ICON.ico",
@@ -194,7 +192,9 @@ def launch_gradio(server_name: str, server_port: int) -> None:
         theme=ui_theme,
         css=STUDIO_CSS,
         js=(
-            pathlib.Path(os.path.join(now_dir, "tabs", "realtime", "main.js")).read_text()
+            pathlib.Path(
+                os.path.join(now_dir, "tabs", "realtime", "main.js")
+            ).read_text()
             if client_mode
             else None
         ),

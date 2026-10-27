@@ -382,7 +382,6 @@ def tts_tab():
                 None,
             )
 
-
     terms_checkbox = gr.Checkbox(
         label=i18n("I agree to the terms of use"),
         info=i18n(

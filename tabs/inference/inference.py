@@ -1231,7 +1231,6 @@ def inference_tab():
                     "An error occurred during audio batch conversion. Please check the console logs for more details."
                 )
 
-
         terms_checkbox = gr.Checkbox(
             label=i18n("I agree to the terms of use"),
             info=i18n(
@@ -1852,7 +1851,6 @@ def inference_tab():
                         move_files_button_batch = gr.Button(
                             i18n("Move files to custom embedder folder")
                         )
-
 
         terms_checkbox_batch = gr.Checkbox(
             label=i18n("I agree to the terms of use"),

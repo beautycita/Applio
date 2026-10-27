@@ -32,12 +32,39 @@ import pipeline as pl  # noqa: E402
 
 RATE = pl.RATE
 FR = 960  # 20 ms frames
-FAR = ("owl", "array", "matriz", "webcam", "cámara", "camara", "camera", "realtek", "internal", "interno",
-       "integrad", "built-in")
+FAR = (
+    "owl",
+    "array",
+    "matriz",
+    "webcam",
+    "cámara",
+    "camara",
+    "camera",
+    "realtek",
+    "internal",
+    "interno",
+    "integrad",
+    "built-in",
+)
 
 
 def load(path):
-    raw = pl.run_bytes(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", str(RATE), "-f", "f32le", "-"])
+    raw = pl.run_bytes(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            path,
+            "-ac",
+            "1",
+            "-ar",
+            str(RATE),
+            "-f",
+            "f32le",
+            "-",
+        ]
+    )
     return np.frombuffer(raw, np.float32).astype(np.float64)
 
 
@@ -45,7 +72,7 @@ def frame_db(x):
     n = len(x) // FR
     if n == 0:
         return np.array([])
-    return 10 * np.log10((x[:n * FR].reshape(n, FR) ** 2).mean(1) + 1e-12)
+    return 10 * np.log10((x[: n * FR].reshape(n, FR) ** 2).mean(1) + 1e-12)
 
 
 def ltas(x, win):
@@ -55,7 +82,7 @@ def ltas(x, win):
     w = np.hanning(win)
     acc, n = np.zeros(win // 2 + 1), 0
     for i in range(0, len(x) - win, win // 2):
-        acc += np.abs(np.fft.rfft(x[i:i + win] * w)) ** 2
+        acc += np.abs(np.fft.rfft(x[i : i + win] * w)) ** 2
         n += 1
     return acc / max(n, 1)
 
@@ -69,7 +96,7 @@ def band_db(spec, win, lo, hi):
 def voiced(x, fdb, floor):
     """The samples of frames that carry voice (15 dB over the room)."""
     keep = np.repeat(fdb > floor + 15, FR)
-    return x[:len(keep)][keep]
+    return x[: len(keep)][keep]
 
 
 def brillo_db(speech):
@@ -108,16 +135,16 @@ def echo_s(x, floor):
     n = len(x) // fr
     if n < 200:
         return None
-    d = 10 * np.log10((x[:n * fr].reshape(n, fr) ** 2).mean(1) + 1e-12)
+    d = 10 * np.log10((x[: n * fr].reshape(n, fr) ** 2).mean(1) + 1e-12)
     d = np.convolve(d, np.ones(3) / 3, "same")
     slopes = []
     for i in range(4, len(d) - 100):
-        if d[i] > floor + 30 and d[i] == d[i - 4:i + 5].max():
-            seg = d[i:i + 100]
+        if d[i] > floor + 30 and d[i] == d[i - 4 : i + 5].max():
+            seg = d[i : i + 100]
             j = int(np.argmax(seg < d[i] - 25))
             if j == 0:
                 continue
-            run = seg[:j + 1]
+            run = seg[: j + 1]
             if np.any(np.diff(run) > 3):
                 continue
             k = np.where((run <= d[i] - 5) & (run >= d[i] - 25))[0]
@@ -137,15 +164,17 @@ def hum_db(silence):
     worst = -99.0
     for h in (60, 120, 180):
         j = round(h / hz)
-        near = np.concatenate([sp[j - 8:j - 3], sp[j + 4:j + 9]]).mean()
-        worst = max(worst, 10 * np.log10(sp[j - 1:j + 2].max() / (near + 1e-20)))
+        near = np.concatenate([sp[j - 8 : j - 3], sp[j + 4 : j + 9]]).mean()
+        worst = max(worst, 10 * np.log10(sp[j - 1 : j + 2].max() / (near + 1e-20)))
     return float(worst)
 
 
 def analyze(path, silence_s, label=""):
     x = load(path)
     cut = int(max(0.5, silence_s) * RATE)
-    silence = x[int(0.3 * RATE):max(int(0.3 * RATE) + FR, cut - int(0.2 * RATE))]  # skip the click, and the breath before reading
+    silence = x[
+        int(0.3 * RATE) : max(int(0.3 * RATE) + FR, cut - int(0.2 * RATE))
+    ]  # skip the click, and the breath before reading
     speech_all = x[cut:]
     sdb = frame_db(silence)
     fdb = frame_db(speech_all)
@@ -157,17 +186,27 @@ def analyze(path, silence_s, label=""):
     checks = []  # (key, name, value text, colour, tip or None)
 
     if len(speech) < RATE * 2:
-        out.update(veredicto="NO APTO", color="r", checks=[{
-            "clave": "voz", "nombre": "Voz", "valor": "no se oyó", "color": "r",
-            "tip": "No se escuchó voz en la prueba. Revisa que el micrófono elegido arriba sea el de solapa, que no esté en silencio en Windows, y lee en voz normal cuando lo indique la pantalla."}])
+        out.update(
+            veredicto="NO APTO",
+            color="r",
+            checks=[
+                {
+                    "clave": "voz",
+                    "nombre": "Voz",
+                    "valor": "no se oyó",
+                    "color": "r",
+                    "tip": "No se escuchó voz en la prueba. Revisa que el micrófono elegido arriba sea el de solapa, que no esté en silencio en Windows, y lee en voz normal cuando lo indique la pantalla.",
+                }
+            ],
+        )
         return out
 
     # The room's own sound: the quietest moments of the whole clip (the silent
     # part if she kept quiet, the pauses between phrases if she did not).
-    allx = x[int(0.3 * RATE):]
+    allx = x[int(0.3 * RATE) :]
     adb = frame_db(allx)
     quiet_mask = np.repeat(adb < np.percentile(adb, 15) + 3, FR)
-    room = allx[:len(quiet_mask)][quiet_mask]
+    room = allx[: len(quiet_mask)][quiet_mask]
     if len(room) < RATE // 2:
         room = silence
     level = float(np.median(fdb[fdb > floor + 15]))
@@ -176,56 +215,152 @@ def analyze(path, silence_s, label=""):
     brillo = brillo_db(speech)
     echo = echo_s(speech_all, floor)
     hum = hum_db(room)
-    out.update(nivel_db=round(level, 1), saturaciones=clips, alcance_khz=reach,
-               brillo_db=None if brillo is None else round(brillo, 1),
-               eco_s=None if echo is None else round(echo, 2), zumbido_db=None if hum is None else round(hum, 1))
+    out.update(
+        nivel_db=round(level, 1),
+        saturaciones=clips,
+        alcance_khz=reach,
+        brillo_db=None if brillo is None else round(brillo, 1),
+        eco_s=None if echo is None else round(echo, 2),
+        zumbido_db=None if hum is None else round(hum, 1),
+    )
 
     # brillo (the tinny test)
     reach_txt = f" · llega a {reach:g} kHz" if reach else ""
     if brillo is None:
-        checks.append(("brillo", "Brillo", "sin medir", "y", "La prueba fue muy corta para medir el brillo. Repítela leyendo toda la ventana."))
+        checks.append(
+            (
+                "brillo",
+                "Brillo",
+                "sin medir",
+                "y",
+                "La prueba fue muy corta para medir el brillo. Repítela leyendo toda la ventana.",
+            )
+        )
     elif brillo >= -24:
         checks.append(("brillo", "Brillo", f"{brillo:.0f} dB{reach_txt}", "g", None))
     elif brillo >= -32:
-        checks.append(("brillo", "Brillo", f"{brillo:.0f} dB{reach_txt}", "y",
-                       "La voz llega con pocos agudos: se oirá algo opaca o «de teléfono». Revisa que el micrófono quede por fuera de la ropa, a un palmo de la boca, con la cabeza hacia arriba y sin nada que lo cubra."))
+        checks.append(
+            (
+                "brillo",
+                "Brillo",
+                f"{brillo:.0f} dB{reach_txt}",
+                "y",
+                "La voz llega con pocos agudos: se oirá algo opaca o «de teléfono». Revisa que el micrófono quede por fuera de la ropa, a un palmo de la boca, con la cabeza hacia arriba y sin nada que lo cubra.",
+            )
+        )
     else:
-        checks.append(("brillo", "Brillo", f"{brillo:.0f} dB{reach_txt}", "r",
-                       "Casi no hay agudos: esto es lo que sonó «metálico» la vez pasada. Si el micrófono elegido es el de solapa y está bien puesto, ese micrófono no sirve para el anuncio; si es otro (el Owl, la laptop), elige el de solapa."))
+        checks.append(
+            (
+                "brillo",
+                "Brillo",
+                f"{brillo:.0f} dB{reach_txt}",
+                "r",
+                "Casi no hay agudos: esto es lo que sonó «metálico» la vez pasada. Si el micrófono elegido es el de solapa y está bien puesto, ese micrófono no sirve para el anuncio; si es otro (el Owl, la laptop), elige el de solapa.",
+            )
+        )
     # ruido
     if floor < -60:
         checks.append(("ruido", "Ruido de fondo", f"{floor:.0f} dB", "g", None))
     elif floor < -50:
-        checks.append(("ruido", "Ruido de fondo", f"{floor:.0f} dB", "y",
-                       "Hay algo de ruido: apaga ventilador y aire acondicionado, cierra la puerta, aleja la laptop."))
+        checks.append(
+            (
+                "ruido",
+                "Ruido de fondo",
+                f"{floor:.0f} dB",
+                "y",
+                "Hay algo de ruido: apaga ventilador y aire acondicionado, cierra la puerta, aleja la laptop.",
+            )
+        )
     else:
-        checks.append(("ruido", "Ruido de fondo", f"{floor:.0f} dB", "r",
-                       "Mucho ruido de fondo (cuarto o el propio micrófono). Apaga todo lo que zumbe y repite la prueba; si sigue igual en silencio total, el micrófono mete su propio ruido."))
+        checks.append(
+            (
+                "ruido",
+                "Ruido de fondo",
+                f"{floor:.0f} dB",
+                "r",
+                "Mucho ruido de fondo (cuarto o el propio micrófono). Apaga todo lo que zumbe y repite la prueba; si sigue igual en silencio total, el micrófono mete su propio ruido.",
+            )
+        )
     # eco
     if echo is None:
         checks.append(("eco", "Eco", "sin medir", "", None))
     elif echo < 0.25:
         checks.append(("eco", "Eco", f"{echo:.2f} s", "g", None))
     elif echo < 0.4:
-        checks.append(("eco", "Eco", f"{echo:.2f} s", "y", "Algo de eco: cobijas o almohadas en las paredes cercanas, o graba en la recámara."))
+        checks.append(
+            (
+                "eco",
+                "Eco",
+                f"{echo:.2f} s",
+                "y",
+                "Algo de eco: cobijas o almohadas en las paredes cercanas, o graba en la recámara.",
+            )
+        )
     else:
-        checks.append(("eco", "Eco", f"{echo:.2f} s", "r",
-                       "Eco alto: la voz rebota. Revisa que el micrófono esté a un palmo de la boca y pon cobijas detrás de ti y en las paredes cercanas."))
+        checks.append(
+            (
+                "eco",
+                "Eco",
+                f"{echo:.2f} s",
+                "r",
+                "Eco alto: la voz rebota. Revisa que el micrófono esté a un palmo de la boca y pon cobijas detrás de ti y en las paredes cercanas.",
+            )
+        )
     # nivel
     if clips:
-        checks.append(("nivel", "Volumen", f"{level:.0f} dB · satura", "r", "Se satura: baja el volumen de entrada en Windows (Configuración › Sonido › Entrada)."))
+        checks.append(
+            (
+                "nivel",
+                "Volumen",
+                f"{level:.0f} dB · satura",
+                "r",
+                "Se satura: baja el volumen de entrada en Windows (Configuración › Sonido › Entrada).",
+            )
+        )
     elif level < -38:
-        checks.append(("nivel", "Volumen", f"{level:.0f} dB", "r", "Muy bajo: sube el volumen de entrada del micrófono de solapa en Windows hasta que la barra quede verde al hablar."))
+        checks.append(
+            (
+                "nivel",
+                "Volumen",
+                f"{level:.0f} dB",
+                "r",
+                "Muy bajo: sube el volumen de entrada del micrófono de solapa en Windows hasta que la barra quede verde al hablar.",
+            )
+        )
     elif level < -30 or level > -12:
-        checks.append(("nivel", "Volumen", f"{level:.0f} dB", "y", "Ajusta el volumen de entrada en Windows para que la barra quede verde al hablar normal."))
+        checks.append(
+            (
+                "nivel",
+                "Volumen",
+                f"{level:.0f} dB",
+                "y",
+                "Ajusta el volumen de entrada en Windows para que la barra quede verde al hablar normal.",
+            )
+        )
     else:
         checks.append(("nivel", "Volumen", f"{level:.0f} dB", "g", None))
     # zumbido
     if hum is not None and hum > 10:
-        checks.append(("zumbido", "Zumbido", "sí", "y", "Zumbido eléctrico: desconecta el cargador de la laptop mientras grabas y aleja el cable del micrófono de cables de corriente."))
+        checks.append(
+            (
+                "zumbido",
+                "Zumbido",
+                "sí",
+                "y",
+                "Zumbido eléctrico: desconecta el cargador de la laptop mientras grabas y aleja el cable del micrófono de cables de corriente.",
+            )
+        )
     # the mic itself
     if label and any(k in label.lower() for k in FAR):
-        checks.append(("mic", "Micrófono", label, "r", "La prueba se hizo con un micrófono lejano, no con el de solapa. Elígelo arriba y repite."))
+        checks.append(
+            (
+                "mic",
+                "Micrófono",
+                label,
+                "r",
+                "La prueba se hizo con un micrófono lejano, no con el de solapa. Elígelo arriba y repite.",
+            )
+        )
 
     colours = [c[3] for c in checks]
     if "r" in colours:
@@ -234,7 +369,10 @@ def analyze(path, silence_s, label=""):
         out.update(veredicto="APTO, CON AJUSTES", color="y")
     else:
         out.update(veredicto="APTO", color="g")
-    out["checks"] = [{"clave": k, "nombre": n, "valor": v, "color": c, "tip": t} for k, n, v, c, t in checks]
+    out["checks"] = [
+        {"clave": k, "nombre": n, "valor": v, "color": c, "tip": t}
+        for k, n, v, c, t in checks
+    ]
     return out
 
 
@@ -243,7 +381,21 @@ def main(path, silence_s, label=""):
     # the reading alone, raw and through the SoundCraft natural chain
     base = os.path.splitext(path)[0]
     lectura = base + "-lectura.wav"
-    pl.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{silence_s:.3f}", "-i", path, "-c:a", "pcm_s24le", lectura])
+    pl.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-ss",
+            f"{silence_s:.3f}",
+            "-i",
+            path,
+            "-c:a",
+            "pcm_s24le",
+            lectura,
+        ]
+    )
     try:
         pl.polish(lectura, base + "-pulida.wav", chain="natural")
         result["pulida"] = os.path.basename(base + "-pulida.wav")

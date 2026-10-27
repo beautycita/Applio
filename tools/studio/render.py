@@ -32,16 +32,52 @@ from pipeline import RATE, run, run_bytes, say  # noqa: E402
 
 def read_f32(path):
     import numpy as np
-    return np.frombuffer(run_bytes(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", str(RATE),
-                                    "-f", "f32le", "-"]), np.float32).copy()
+
+    return np.frombuffer(
+        run_bytes(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                path,
+                "-ac",
+                "1",
+                "-ar",
+                str(RATE),
+                "-f",
+                "f32le",
+                "-",
+            ]
+        ),
+        np.float32,
+    ).copy()
 
 
 def write_f32(path, audio):
     import numpy as np
+
     raw = os.path.join(os.path.dirname(path), os.path.basename(path) + ".f32")
     np.asarray(audio, np.float32).tofile(raw)
-    run(["ffmpeg", "-v", "error", "-y", "-f", "f32le", "-ar", str(RATE), "-ac", "1", "-i", raw,
-         "-c:a", "pcm_f32le", path])
+    run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "f32le",
+            "-ar",
+            str(RATE),
+            "-ac",
+            "1",
+            "-i",
+            raw,
+            "-c:a",
+            "pcm_f32le",
+            path,
+        ]
+    )
     os.remove(raw)
 
 
@@ -52,21 +88,22 @@ def align(ref, other, max_shift_ms=120):
     waveforms (their raw cross-correlation picks a random few-ms shift, which
     smears the blend), but they rise and fall on the same syllables."""
     import numpy as np
+
     hop = RATE // 1000
 
     def env(x):
         n = len(x) // hop
-        return np.log(np.sqrt((x[:n * hop].reshape(n, hop) ** 2).mean(1)) + 1e-4)
+        return np.log(np.sqrt((x[: n * hop].reshape(n, hop) ** 2).mean(1)) + 1e-4)
 
     eo, es = env(ref), env(other)
     m = max_shift_ms
     n = min(len(eo), len(es)) - 2 * m
     if n < 2000:
         return other
-    a = eo[m:m + n]
+    a = eo[m : m + n]
     best_lag, best_c = 0, -1.0
     for lag in range(-m, m + 1):
-        c = float(np.corrcoef(a, es[m + lag:m + lag + n])[0, 1])
+        c = float(np.corrcoef(a, es[m + lag : m + lag + n])[0, 1])
         if c > best_c:
             best_lag, best_c = lag, c
     if best_c < 0.6 or best_lag == 0:
@@ -83,7 +120,9 @@ def main(folder, carpeta, params):
     src_dir = os.path.join(folder, "final", carpeta)
     fuente = os.path.join(src_dir, "fuente.wav")
     if not os.path.isfile(fuente):
-        raise SystemExit("ese resultado no tiene fuente.wav (procésalo de nuevo en la cabina)")
+        raise SystemExit(
+            "ese resultado no tiene fuente.wav (procésalo de nuevo en la cabina)"
+        )
     voz = params.get("voz", "US_Female_1")
     mezcla = max(0, min(100, int(params.get("mezcla", 50)))) / 100
     afin = max(0, min(100, int(params.get("afinacion", 0)))) / 100
@@ -107,11 +146,30 @@ def main(folder, carpeta, params):
             raise SystemExit("no existe ese modelo de voz")
         cache = os.path.join(src_dir, "cache", f"{voz}-a{int(afin * 100)}-t{semis}.wav")
         if not os.path.isfile(cache):
-            say("voz", msg=f"Convirtiendo con {voz} (afinación {int(afin * 100)} %, tono {semis:+d})… 1–3 min")
+            say(
+                "voz",
+                msg=f"Convirtiendo con {voz} (afinación {int(afin * 100)} %, tono {semis:+d})… 1–3 min",
+            )
             os.makedirs(os.path.dirname(cache), exist_ok=True)
             tmp = os.path.join(work, "rvc.wav")
             pl.convert(fuente, tmp, voz, autotune=afin, pitch=semis)
-            run(["ffmpeg", "-v", "error", "-y", "-i", tmp, "-ac", "1", "-ar", str(RATE), "-c:a", "pcm_f32le", cache])
+            run(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-y",
+                    "-i",
+                    tmp,
+                    "-ac",
+                    "1",
+                    "-ar",
+                    str(RATE),
+                    "-c:a",
+                    "pcm_f32le",
+                    cache,
+                ]
+            )
         else:
             say("voz", msg="Voz sintética ya convertida con esos ajustes (caché).")
         synth = align(original, read_f32(cache))
@@ -119,14 +177,19 @@ def main(folder, carpeta, params):
         o = np.pad(original, (0, n - len(original)))
         s = np.pad(synth, (0, n - len(synth)))
         # match loudness before mixing so the slider means what it says
-        ro, rs = float(np.sqrt(np.mean(o ** 2)) + 1e-9), float(np.sqrt(np.mean(s ** 2)) + 1e-9)
+        ro, rs = float(np.sqrt(np.mean(o**2)) + 1e-9), float(
+            np.sqrt(np.mean(s**2)) + 1e-9
+        )
         s = s * (ro / rs)
         go, gs = math.cos(mezcla * math.pi / 2), math.sin(mezcla * math.pi / 2)
         mix = go * o + gs * s
         peak = float(np.max(np.abs(mix)) + 1e-9)
         if peak > 0.98:
             mix = mix * (0.98 / peak)
-    say("mezclar", msg=f"Mezcla: {int((1 - mezcla) * 100)} % Quetzaly · {int(mezcla * 100)} % sintética")
+    say(
+        "mezclar",
+        msg=f"Mezcla: {int((1 - mezcla) * 100)} % Quetzaly · {int(mezcla * 100)} % sintética",
+    )
     mixed = os.path.join(work, "mezcla.wav")
     write_f32(mixed, mix)
 
@@ -135,18 +198,53 @@ def main(folder, carpeta, params):
     got, gain = pl.polish(mixed, full, chain=pulido, target=lufs)
 
     say("entregar", msg="Preparando descargas sin pérdida (WAV 24-bit, FLAC, escenas)…")
-    run(["ffmpeg", "-v", "error", "-y", "-i", full, "-c:a", "flac", "-sample_fmt", "s32", "-bits_per_raw_sample", "24",
-         os.path.join(out, "voz.flac")])
+    run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-i",
+            full,
+            "-c:a",
+            "flac",
+            "-sample_fmt",
+            "s32",
+            "-bits_per_raw_sample",
+            "24",
+            os.path.join(out, "voz.flac"),
+        ]
+    )
     cortes_path = os.path.join(src_dir, "cortes.json")
     escenas = []
     if os.path.isfile(cortes_path):
-        escenas = pl.cut_scenes(full, json.load(open(cortes_path, encoding="utf-8")), os.path.join(out, "escenas"))
-    info = {"id": rid, "carpeta": carpeta, "voz": voz if mezcla > 0 else "original", "mezcla": int(mezcla * 100),
-            "afinacion": int(afin * 100), "tono": semis, "pulido": pulido, "lufs_objetivo": lufs,
-            "lufs": round(got, 1), "duracion": round(pl.duration(full), 1),
-            "escenas": [os.path.basename(e) for e in escenas]}
-    json.dump(info, open(os.path.join(out, "parametros.json"), "w"), ensure_ascii=False, indent=1)
-    with zipfile.ZipFile(os.path.join(out, f"BeautyCita-edicion-{rid}.zip"), "w", zipfile.ZIP_STORED) as z:
+        escenas = pl.cut_scenes(
+            full,
+            json.load(open(cortes_path, encoding="utf-8")),
+            os.path.join(out, "escenas"),
+        )
+    info = {
+        "id": rid,
+        "carpeta": carpeta,
+        "voz": voz if mezcla > 0 else "original",
+        "mezcla": int(mezcla * 100),
+        "afinacion": int(afin * 100),
+        "tono": semis,
+        "pulido": pulido,
+        "lufs_objetivo": lufs,
+        "lufs": round(got, 1),
+        "duracion": round(pl.duration(full), 1),
+        "escenas": [os.path.basename(e) for e in escenas],
+    }
+    json.dump(
+        info,
+        open(os.path.join(out, "parametros.json"), "w"),
+        ensure_ascii=False,
+        indent=1,
+    )
+    with zipfile.ZipFile(
+        os.path.join(out, f"BeautyCita-edicion-{rid}.zip"), "w", zipfile.ZIP_STORED
+    ) as z:
         z.write(full, "voz.wav")
         z.write(os.path.join(out, "voz.flac"), "voz.flac")
         z.write(os.path.join(out, "parametros.json"), "parametros.json")

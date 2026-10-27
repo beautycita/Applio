@@ -54,7 +54,9 @@ def get_file_size_if_missing(file_list):
             destination_path = os.path.join(local_folder, file)
             if not os.path.exists(destination_path):
                 url = f"{url_base}/{remote_folder}{file}"
-                response = requests.head(url, headers=hf_headers(), allow_redirects=True)
+                response = requests.head(
+                    url, headers=hf_headers(), allow_redirects=True
+                )
                 total_size += int(response.headers.get("content-length", 0))
     return total_size
 

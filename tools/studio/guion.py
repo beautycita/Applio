@@ -20,7 +20,9 @@ import os
 import re
 
 TONOS = ("casual", "profesional")
-TAKE_RE = re.compile(r"^(?P<stem>[\w-]+?)(?:-(?P<tono>casual|profesional))?-(?P<hora>\d{6})(?:-\d+)?\.wav$")
+TAKE_RE = re.compile(
+    r"^(?P<stem>[\w-]+?)(?:-(?P<tono>casual|profesional))?-(?P<hora>\d{6})(?:-\d+)?\.wav$"
+)
 
 
 def load(folder):
@@ -35,12 +37,19 @@ def load(folder):
     try:
         scenes = json.loads(raw)
     except ValueError:
-        scenes = [{"id": "toma", "titulo": "Guion", "texto": raw}] if raw.strip() else []
+        scenes = (
+            [{"id": "toma", "titulo": "Guion", "texto": raw}] if raw.strip() else []
+        )
     out = []
     for s in scenes:
         same = {"texto": s.get("texto", ""), "nota": s.get("nota", "")}
-        out.append({"id": s["id"], "titulo": s.get("titulo", s["id"]),
-                    **{t: {**same, **(s.get(t) or {})} for t in TONOS}})
+        out.append(
+            {
+                "id": s["id"],
+                "titulo": s.get("titulo", s["id"]),
+                **{t: {**same, **(s.get(t) or {})} for t in TONOS},
+            }
+        )
     return out
 
 

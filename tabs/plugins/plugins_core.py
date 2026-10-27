@@ -110,5 +110,7 @@ def check_new_folders():
                 )
             else:
                 print("No requirements.txt file found in the plugin folder.")
-        print("Plugins checked and installed! Restarting remifasol to apply the changes.")
+        print(
+            "Plugins checked and installed! Restarting remifasol to apply the changes."
+        )
         restart_app()

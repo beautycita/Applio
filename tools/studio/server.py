@@ -47,14 +47,25 @@ APPLIO = os.path.dirname(os.path.dirname(HERE))
 AUTOFLOW_PY = os.path.expanduser("~/.local/share/remifasol-autoflow/venv/bin/python")
 CARPETA = r"\d{8}-\d{6}(?:-(?:casual|profesional))?"
 RID = r"\d{8}-\d{6}"
-PULIDOS = {"natural": "Natural (EQ, de-esser, compresor)", "radio": "Radio (presencia y compresión firme)",
-           "calido": "Cálido (cuerpo, agudos suaves)", "limpio": "Sin color (solo volumen)"}
-CTYPES = {"wav": "audio/wav", "flac": "audio/flac", "mp3": "audio/mpeg", "zip": "application/zip",
-          "json": "application/json"}
+PULIDOS = {
+    "natural": "Natural (EQ, de-esser, compresor)",
+    "radio": "Radio (presencia y compresión firme)",
+    "calido": "Cálido (cuerpo, agudos suaves)",
+    "limpio": "Sin color (solo volumen)",
+}
+CTYPES = {
+    "wav": "audio/wav",
+    "flac": "audio/flac",
+    "mp3": "audio/mpeg",
+    "zip": "application/zip",
+    "json": "application/json",
+}
 
-RONDAS = [{"n": 1, "intencion": "Natural, como platicando"},
-          {"n": 2, "intencion": "Más expresiva: más sonrisa, más energía"},
-          {"n": 3, "intencion": "Más suave y cercana, como al oído"}]
+RONDAS = [
+    {"n": 1, "intencion": "Natural, como platicando"},
+    {"n": 2, "intencion": "Más expresiva: más sonrisa, más energía"},
+    {"n": 3, "intencion": "Más suave y cercana, como al oído"},
+]
 ENT_TAKE = re.compile(r"^ent-(?P<id>[\w-]{1,40}?)-r(?P<r>[123])-\d{6}(?:-\d+)?\.wav$")
 ENT_META_MIN = 20
 
@@ -74,10 +85,20 @@ def ent_state(out):
     for f in sorted(os.listdir(d), key=lambda f: os.path.getmtime(os.path.join(d, f))):
         m = ENT_TAKE.match(f)
         if m:
-            tomas.append({"file": f, "id": m["id"], "ronda": int(m["r"]),
-                          "seconds": round((os.path.getsize(os.path.join(d, f)) - 44) / (48000 * 3), 1)})
+            tomas.append(
+                {
+                    "file": f,
+                    "id": m["id"],
+                    "ronda": int(m["r"]),
+                    "seconds": round(
+                        (os.path.getsize(os.path.join(d, f)) - 44) / (48000 * 3), 1
+                    ),
+                }
+            )
     try:
-        consent = json.load(open(os.path.join(d, "consentimiento.json"), encoding="utf-8"))
+        consent = json.load(
+            open(os.path.join(d, "consentimiento.json"), encoding="utf-8")
+        )
     except (OSError, ValueError):
         consent = None
     # minutes that train the model: the latest take of each passage and round, authorization excluded
@@ -85,11 +106,22 @@ def ent_state(out):
     for t in tomas:
         if t["id"] != "00-consentimiento":
             latest[(t["id"], t["ronda"])] = t["seconds"]
-    return {"textos": textos, "rondas": RONDAS, "tomas": tomas[::-1], "consentimiento": consent,
-            "minutos": round(sum(latest.values()) / 60, 1), "meta_min": ENT_META_MIN}
+    return {
+        "textos": textos,
+        "rondas": RONDAS,
+        "tomas": tomas[::-1],
+        "consentimiento": consent,
+        "minutos": round(sum(latest.values()) / 60, 1),
+        "meta_min": ENT_META_MIN,
+    }
 
 
-ALLOWED_ORIGINS = {"https://bc-dev.tail897a37.ts.net", "https://bc-dev.tail897a37.ts.net:8443", "http://127.0.0.1:8765", "http://127.0.0.1:8766"}
+ALLOWED_ORIGINS = {
+    "https://bc-dev.tail897a37.ts.net",
+    "https://bc-dev.tail897a37.ts.net:8443",
+    "http://127.0.0.1:8765",
+    "http://127.0.0.1:8766",
+}
 LOCK = threading.Lock()
 FLOW = {"running": False, "msg": "", "result": None, "error": None}
 EDIT = {"running": False, "msg": "", "result": None, "error": None}
@@ -99,7 +131,9 @@ TRAIN_UNIT = "voz-entreno"
 
 
 def training_active():
-    r = subprocess.run(["systemctl", "--user", "is-active", TRAIN_UNIT], capture_output=True, text=True)
+    r = subprocess.run(
+        ["systemctl", "--user", "is-active", TRAIN_UNIT], capture_output=True, text=True
+    )
     return r.stdout.strip() in ("active", "activating")
 
 
@@ -125,7 +159,9 @@ def run_job(state, cmd):
     """Runs a pipeline/render script and mirrors its `@@` progress lines into state."""
     state.update(running=True, msg="Iniciando…", result=None, error=None)
     try:
-        proc = subprocess.Popen(cmd, cwd=APPLIO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        proc = subprocess.Popen(
+            cmd, cwd=APPLIO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
         tail = []
         for line in proc.stdout:
             tail = (tail + [line.strip()])[-5:]
@@ -202,7 +238,9 @@ class Studio(BaseHTTPRequestHandler):
         self.send_header("Content-Type", CTYPES.get(ext, "application/octet-stream"))
         self.send_header("Content-Length", str(os.path.getsize(path)))
         disp = "attachment" if download else "inline"
-        self.send_header("Content-Disposition", f'{disp}; filename="{os.path.basename(path)}"')
+        self.send_header(
+            "Content-Disposition", f'{disp}; filename="{os.path.basename(path)}"'
+        )
         self.end_headers()
         with open(path, "rb") as fh:
             shutil.copyfileobj(fh, self.wfile)
@@ -225,26 +263,54 @@ class Studio(BaseHTTPRequestHandler):
     def do_GET(self):
         route, q = self._route(), self._query()
         if route == "/":
-            return self._send(200, open(os.path.join(HERE, "booth.html"), "rb").read(), "text/html; charset=utf-8")
+            return self._send(
+                200,
+                open(os.path.join(HERE, "booth.html"), "rb").read(),
+                "text/html; charset=utf-8",
+            )
         if route == "/entrenar":
-            return self._send(200, open(os.path.join(HERE, "trainer.html"), "rb").read(), "text/html; charset=utf-8")
+            return self._send(
+                200,
+                open(os.path.join(HERE, "trainer.html"), "rb").read(),
+                "text/html; charset=utf-8",
+            )
         if route == "/entrenamiento/estado":
             st = ent_state(self.out)
             from train import ENCODERS, LANGS, MIN_MINUTES, folder_config, lang_of
-            return self._json({"minutos": st["minutos"], "meta_min": st["meta_min"], "min_min": MIN_MINUTES,
-                               "consentimiento": st["consentimiento"], "corriendo": training_active(),
-                               "codificadores": ENCODERS, "examen_textos": LANGS[lang_of(ent_dir(self.out))]["examen"],
-                               "modelo": folder_config(ent_dir(self.out)).get("modelo", "quetzaly-v1"),
-                               "tomas": len([t for t in st["tomas"] if t["id"] != "00-consentimiento"]),
-                               "modelos": train_models(self.out)})
-        m = re.fullmatch(r"/entrenamiento/audio/([\w-]{1,40})/(examen|muestras-contentvec|muestras-spin-v2)/([\w.-]+\.wav)", route)
+
+            return self._json(
+                {
+                    "minutos": st["minutos"],
+                    "meta_min": st["meta_min"],
+                    "min_min": MIN_MINUTES,
+                    "consentimiento": st["consentimiento"],
+                    "corriendo": training_active(),
+                    "codificadores": ENCODERS,
+                    "examen_textos": LANGS[lang_of(ent_dir(self.out))]["examen"],
+                    "modelo": folder_config(ent_dir(self.out)).get(
+                        "modelo", "quetzaly-v1"
+                    ),
+                    "tomas": len(
+                        [t for t in st["tomas"] if t["id"] != "00-consentimiento"]
+                    ),
+                    "modelos": train_models(self.out),
+                }
+            )
+        m = re.fullmatch(
+            r"/entrenamiento/audio/([\w-]{1,40})/(examen|muestras-contentvec|muestras-spin-v2)/([\w.-]+\.wav)",
+            route,
+        )
         if m:
             p = os.path.join(ent_dir(self.out), "modelos", m[1], m[2], m[3])
             if os.path.isfile(p):
                 return self._file(p)
             return self._send(404, '{"error":"not found"}')
         if route == "/editar":
-            return self._send(200, open(os.path.join(HERE, "editor.html"), "rb").read(), "text/html; charset=utf-8")
+            return self._send(
+                200,
+                open(os.path.join(HERE, "editor.html"), "rb").read(),
+                "text/html; charset=utf-8",
+            )
         if route == "/guion":
             return self._json(guion.load(self.out))
         if route == "/takes":
@@ -252,20 +318,28 @@ class Studio(BaseHTTPRequestHandler):
             items = []
             for path, stem, tono in reversed(guion.takes(self.out)):
                 f = os.path.basename(path)
-                items.append({"file": f, "id": stem, "tono": tono,
-                              "seconds": round((os.path.getsize(path) - 44) / (48000 * 3), 1),
-                              "elegida": picks[tono].get(stem) == f})
+                items.append(
+                    {
+                        "file": f,
+                        "id": stem,
+                        "tono": tono,
+                        "seconds": round((os.path.getsize(path) - 44) / (48000 * 3), 1),
+                        "elegida": picks[tono].get(stem) == f,
+                    }
+                )
             return self._json(items)
         if route == "/estado":
             state = dict(FLOW)
             if not state["running"] and not state["result"] and not state["error"]:
                 r = results(self.out)
-                state["result"] = next((x for x in r if x["tono"] == q.get("tono", "casual")), None)
+                state["result"] = next(
+                    (x for x in r if x["tono"] == q.get("tono", "casual")), None
+                )
             return self._json(state)
         if route == "/entreno":
             return self._json(ent_state(self.out))
         if route.startswith("/entreno/toma/"):
-            name = os.path.basename(unquote(route[len("/entreno/toma/"):]))
+            name = os.path.basename(unquote(route[len("/entreno/toma/") :]))
             p = os.path.join(ent_dir(self.out), name)
             if ENT_TAKE.match(name) and os.path.isfile(p):
                 return self._file(p)
@@ -274,12 +348,15 @@ class Studio(BaseHTTPRequestHandler):
             return self._json(results(self.out))
         if route == "/modelos":
             from pipeline import voices  # stdlib-only import path
+
             return self._json({"voces": voices(), "pulidos": PULIDOS})
         if route == "/render/estado":
             return self._json(EDIT)
         if route == "/renders":
             return self._json(renders(self.out))
-        m = re.fullmatch(rf"/final/({CARPETA})/(?:(ediciones/{RID}/(?:escenas/)?))?([\w.-]+)", route)
+        m = re.fullmatch(
+            rf"/final/({CARPETA})/(?:(ediciones/{RID}/(?:escenas/)?))?([\w.-]+)", route
+        )
         if m:
             p = os.path.join(self.out, "final", m[1], m[2] or "", m[3])
             if os.path.isfile(p):
@@ -290,7 +367,7 @@ class Studio(BaseHTTPRequestHandler):
             if os.path.isfile(p):
                 return self._file(p)
         if route.startswith("/take/"):
-            name = os.path.basename(unquote(route[len("/take/"):]))
+            name = os.path.basename(unquote(route[len("/take/") :]))
             p = os.path.join(self.out, name)
             if guion.parse_take(name) and os.path.isfile(p):
                 return self._file(p)
@@ -314,13 +391,23 @@ class Studio(BaseHTTPRequestHandler):
             tono = q.get("tono", "casual")
             if tono not in guion.TONOS:
                 return self._json({"error": "tono desconocido"}, 400)
-            if voice != "none" and not os.path.isdir(os.path.join(APPLIO, "logs", voice)):
+            if voice != "none" and not os.path.isdir(
+                os.path.join(APPLIO, "logs", voice)
+            ):
                 return self._json({"error": "no existe ese modelo de voz"}, 400)
             with LOCK:
                 if busy():
                     return self._json({"error": "ya hay un proceso corriendo"}, 409)
                 FLOW["running"] = True
-            cmd = [AUTOFLOW_PY, os.path.join(HERE, "pipeline.py"), self.out, "--voz", voice, "--tono", tono]
+            cmd = [
+                AUTOFLOW_PY,
+                os.path.join(HERE, "pipeline.py"),
+                self.out,
+                "--voz",
+                voice,
+                "--tono",
+                tono,
+            ]
             threading.Thread(target=run_job, args=(FLOW, cmd), daemon=True).start()
             return self._json({"started": True}, 202)
         if route == "/render":
@@ -338,7 +425,13 @@ class Studio(BaseHTTPRequestHandler):
                 if busy():
                     return self._json({"error": "ya hay un proceso corriendo"}, 409)
                 EDIT["running"] = True
-            cmd = [AUTOFLOW_PY, os.path.join(HERE, "render.py"), self.out, carpeta, json.dumps(params)]
+            cmd = [
+                AUTOFLOW_PY,
+                os.path.join(HERE, "render.py"),
+                self.out,
+                carpeta,
+                json.dumps(params),
+            ]
             threading.Thread(target=run_job, args=(EDIT, cmd), daemon=True).start()
             return self._json({"started": True}, 202)
         if route == "/entrenamiento/iniciar":
@@ -347,31 +440,74 @@ class Studio(BaseHTTPRequestHandler):
             except ValueError:
                 return self._json({"error": "inválido"}, 400)
             from train import ENCODERS
+
             name = re.sub(r"[^\w-]", "", str(b.get("nombre", "")))[:40]
             if len(name) < 3:
-                return self._json({"error": "ponle un nombre al modelo (letras, números, guiones)"}, 400)
+                return self._json(
+                    {"error": "ponle un nombre al modelo (letras, números, guiones)"},
+                    400,
+                )
             if b.get("codificador") not in (*ENCODERS, "comparar"):
                 return self._json({"error": "codificador no permitido"}, 400)
             if not ent_state(self.out)["consentimiento"]:
-                return self._json({"error": "falta la autorización de la voz (cabina › Entrenar su voz)"}, 403)
-            params = {"nombre": name, "codificador": b["codificador"], "epocas": int(b.get("epocas", 300)),
-                      "cada": int(b.get("cada", 25)), "lote": int(b.get("lote", 6)),
-                      "donde": "nube" if b.get("donde") == "nube" else "local",
-                      "borrar_nube": bool(b.get("borrar_nube", True))}
+                return self._json(
+                    {
+                        "error": "falta la autorización de la voz (cabina › Entrenar su voz)"
+                    },
+                    403,
+                )
+            params = {
+                "nombre": name,
+                "codificador": b["codificador"],
+                "epocas": int(b.get("epocas", 300)),
+                "cada": int(b.get("cada", 25)),
+                "lote": int(b.get("lote", 6)),
+                "donde": "nube" if b.get("donde") == "nube" else "local",
+                "borrar_nube": bool(b.get("borrar_nube", True)),
+            }
             with LOCK:
                 if busy():
-                    return self._json({"error": "hay otro proceso corriendo (entrenamiento, render o auto-flow)"}, 409)
-                subprocess.run(["systemctl", "--user", "reset-failed", TRAIN_UNIT], capture_output=True)
-                r = subprocess.run(["systemd-run", "--user", "--unit", TRAIN_UNIT, "--collect",
-                                    "-p", f"WorkingDirectory={APPLIO}", "-p", "KillSignal=SIGTERM", "-p", "TimeoutStopSec=900",
-                                    AUTOFLOW_PY, os.path.join(HERE, "train.py"), self.out, json.dumps(params)],
-                                   capture_output=True, text=True)
+                    return self._json(
+                        {
+                            "error": "hay otro proceso corriendo (entrenamiento, render o auto-flow)"
+                        },
+                        409,
+                    )
+                subprocess.run(
+                    ["systemctl", "--user", "reset-failed", TRAIN_UNIT],
+                    capture_output=True,
+                )
+                r = subprocess.run(
+                    [
+                        "systemd-run",
+                        "--user",
+                        "--unit",
+                        TRAIN_UNIT,
+                        "--collect",
+                        "-p",
+                        f"WorkingDirectory={APPLIO}",
+                        "-p",
+                        "KillSignal=SIGTERM",
+                        "-p",
+                        "TimeoutStopSec=900",
+                        AUTOFLOW_PY,
+                        os.path.join(HERE, "train.py"),
+                        self.out,
+                        json.dumps(params),
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
             if r.returncode != 0:
-                return self._json({"error": "no se pudo iniciar: " + r.stderr[-200:]}, 500)
+                return self._json(
+                    {"error": "no se pudo iniciar: " + r.stderr[-200:]}, 500
+                )
             print(f"training started: {params}", flush=True)
             return self._json({"started": True, **params}, 202)
         if route == "/entrenamiento/cancelar":
-            subprocess.run(["systemctl", "--user", "stop", TRAIN_UNIT], capture_output=True)
+            subprocess.run(
+                ["systemctl", "--user", "stop", TRAIN_UNIT], capture_output=True
+            )
             return self._json({"ok": True})
         if route == "/entreno/acepto":
             try:
@@ -380,15 +516,34 @@ class Studio(BaseHTTPRequestHandler):
                 return self._json({"error": "inválido"}, 400)
             nombre = re.sub(r"\s+", " ", str(b.get("nombre", ""))).strip()[:80]
             st = ent_state(self.out)
-            audio = next((t["file"] for t in st["tomas"] if t["id"] == "00-consentimiento"), None)
+            audio = next(
+                (t["file"] for t in st["tomas"] if t["id"] == "00-consentimiento"), None
+            )
             if not audio:
-                return self._json({"error": "primero graba la autorización (texto 00) en voz alta"}, 400)
+                return self._json(
+                    {"error": "primero graba la autorización (texto 00) en voz alta"},
+                    400,
+                )
             if len(nombre) < 5 or not b.get("acepto"):
-                return self._json({"error": "escribe tu nombre completo y marca que aceptas"}, 400)
-            texto = next((t["texto"] for t in st["textos"] if t["id"] == "00-consentimiento"), "")
-            rec = {"nombre": nombre, "aceptado_en": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-                   "texto": texto, "grabacion": audio}
-            with open(os.path.join(ent_dir(self.out), "consentimiento.json"), "w", encoding="utf-8") as fh:
+                return self._json(
+                    {"error": "escribe tu nombre completo y marca que aceptas"}, 400
+                )
+            texto = next(
+                (t["texto"] for t in st["textos"] if t["id"] == "00-consentimiento"), ""
+            )
+            rec = {
+                "nombre": nombre,
+                "aceptado_en": datetime.datetime.now()
+                .astimezone()
+                .isoformat(timespec="seconds"),
+                "texto": texto,
+                "grabacion": audio,
+            }
+            with open(
+                os.path.join(ent_dir(self.out), "consentimiento.json"),
+                "w",
+                encoding="utf-8",
+            ) as fh:
                 json.dump(rec, fh, ensure_ascii=False, indent=1)
             print(f"training consent accepted by {nombre} (audio {audio})", flush=True)
             return self._json(rec)
@@ -396,10 +551,19 @@ class Studio(BaseHTTPRequestHandler):
             scene = re.sub(r"[^\w-]+", "-", q.get("id", "")).strip("-")[:40]
             ronda = q.get("ronda", "1")
             st = ent_state(self.out)
-            if scene not in {t["id"] for t in st["textos"]} or ronda not in ("1", "2", "3"):
+            if scene not in {t["id"] for t in st["textos"]} or ronda not in (
+                "1",
+                "2",
+                "3",
+            ):
                 return self._json({"error": "texto o ronda inválidos"}, 400)
             if scene != "00-consentimiento" and not st["consentimiento"]:
-                return self._json({"error": "falta la autorización: graba el texto 00 y acepta por escrito"}, 403)
+                return self._json(
+                    {
+                        "error": "falta la autorización: graba el texto 00 y acepta por escrito"
+                    },
+                    403,
+                )
             data = self._body(limit=500 * 1024 * 1024)
             if not data or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
                 return self._json({"error": "not a wav"}, 400)
@@ -423,16 +587,34 @@ class Studio(BaseHTTPRequestHandler):
             label = re.sub(r"[^\w ()\-.áéíóúñÁÉÍÓÚÑ]", "", q.get("mic", ""))[:80]
             folder = os.path.join(self.out, "pruebas")
             os.makedirs(folder, exist_ok=True)
-            path = os.path.join(folder, datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".wav")
+            path = os.path.join(
+                folder, datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".wav"
+            )
             with open(path, "wb") as fh:
                 fh.write(data)
             try:
-                r = subprocess.run([AUTOFLOW_PY, os.path.join(HERE, "mictest.py"), path, str(silence), label],
-                                   cwd=APPLIO, capture_output=True, text=True, timeout=180)
+                r = subprocess.run(
+                    [
+                        AUTOFLOW_PY,
+                        os.path.join(HERE, "mictest.py"),
+                        path,
+                        str(silence),
+                        label,
+                    ],
+                    cwd=APPLIO,
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                )
                 result = json.loads(r.stdout.strip().splitlines()[-1])
             except Exception as exc:
-                return self._json({"error": "no se pudo analizar la prueba: " + str(exc)[-200:]}, 500)
-            print(f"mic test {os.path.basename(path)}: {result.get('veredicto')} ({label})", flush=True)
+                return self._json(
+                    {"error": "no se pudo analizar la prueba: " + str(exc)[-200:]}, 500
+                )
+            print(
+                f"mic test {os.path.basename(path)}: {result.get('veredicto')} ({label})",
+                flush=True,
+            )
             return self._json(result)
         if route == "/elegir":
             try:
@@ -442,9 +624,13 @@ class Studio(BaseHTTPRequestHandler):
             tono, scene, take = b.get("tono"), str(b.get("id", "")), b.get("file")
             if tono not in guion.TONOS or not re.fullmatch(r"[\w-]{1,40}", scene):
                 return self._json({"error": "inválido"}, 400)
-            if take is not None and (guion.parse_take(take) != (scene, tono)
-                                     or not os.path.isfile(os.path.join(self.out, take))):
-                return self._json({"error": "esa toma no es de esta escena y tono"}, 400)
+            if take is not None and (
+                guion.parse_take(take) != (scene, tono)
+                or not os.path.isfile(os.path.join(self.out, take))
+            ):
+                return self._json(
+                    {"error": "esa toma no es de esta escena y tono"}, 400
+                )
             guion.elegir(self.out, tono, scene, take)
             return self._json({"ok": True})
         if route != "/save":
@@ -461,7 +647,9 @@ class Studio(BaseHTTPRequestHandler):
             tono = "casual"
         base = f"{stem}-{tono}-{datetime.datetime.now().strftime('%H%M%S')}"
         name, n = f"{base}.wav", 1
-        while os.path.exists(os.path.join(self.out, name)):  # same second, or the same time another day
+        while os.path.exists(
+            os.path.join(self.out, name)
+        ):  # same second, or the same time another day
             n += 1
             name = f"{base}-{n}.wav"
         with open(os.path.join(self.out, name), "wb") as fh:
