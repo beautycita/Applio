@@ -3,20 +3,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mesa de edición · BeautyCita</title>
 <style>
-:root{--bg:#1b1418;--panel:#271d23;--fg:#f6eef2;--dim:#b7a3ad;--pink:#ff5fa2;--ok:#5fd38a;--bad:#ff4d4d;--field:#120d10}
+:root{--bg:#fbf8f1;--panel:#ffffff;--fg:#1d1b20;--dim:#6b6670;--pink:#e5447f;--ok:#1fa463;--bad:#d93636;--field:#ffffff;--line:#e6dfcf}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
 main{max-width:980px;margin:0 auto;padding:20px 16px;display:grid;gap:16px}
 h1{margin:0;font-size:22px}h1 span{color:var(--pink)}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 a{color:var(--pink);font-weight:700;text-decoration:none}
 section{background:var(--panel);border-radius:12px;padding:16px;display:grid;gap:14px}
-label,.lbl{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
-select{width:100%;padding:10px;border-radius:8px;border:1px solid #4a3a43;background:var(--field);color:var(--fg);font-size:16px}
+label,.lbl{color:var(--dim);font-size:13px;font-weight:600}
+select{width:100%;padding:10px;border-radius:8px;border:1px solid #e6dfcf;background:var(--field);color:var(--fg);font-size:16px}
 .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:700px){.grid2{grid-template-columns:1fr}}
 button{border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:700;cursor:pointer;background:var(--pink);color:#fff}
 button:disabled{opacity:.5;cursor:wait}
-button.sec{background:#3a2c34;color:var(--fg);font-size:14px;padding:9px 16px}
+button.sec{background:#ece6da;color:var(--fg);font-size:14px;padding:9px 16px}
 .slider{display:grid;gap:6px}
 .slider .ends{display:flex;justify-content:space-between;color:var(--dim);font-size:13px}
 .slider .val{font:700 22px ui-monospace,monospace;color:var(--pink)}
@@ -28,7 +28,20 @@ audio{width:100%;height:40px}
 .ed .p{color:var(--dim);font-size:14px}.ed .dl{display:flex;gap:14px;flex-wrap:wrap}
 details summary{cursor:pointer;color:var(--dim);font-size:14px}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
-</style></head><body><main>
+
+/* Achiever look (BC 2026-10-28 polish pass): light, bright, One UI — one family with Achiever */
+body{background:#fbf8f1;color:#1d1b20;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+section,form,.card,.panel{border-radius:24px!important;box-shadow:0 2px 6px rgba(60,40,20,.06),0 10px 26px rgba(60,40,20,.07)}
+label,.lbl{text-transform:none!important;letter-spacing:0!important;font-weight:600}
+input,select,textarea{background:#fff!important;border:2px solid #e6dfcf!important;border-radius:14px!important;color:#1d1b20!important}
+input:focus,select:focus,textarea:focus{outline:0;border-color:#3478f6!important}
+input[type=file]{padding:10px!important}input[type=file]::file-selector-button{border:0;border-radius:999px;padding:9px 16px;margin-right:10px;background:#1d1b20;color:#fff;font-weight:700;cursor:pointer}
+input[type=range]{border:0!important;padding:0!important;accent-color:#3478f6;background:transparent!important}
+button:focus-visible,a:focus-visible{outline:3px solid #3478f6;outline-offset:2px}
+#peak{background:#1d1b20!important}
+.achiever-back{position:relative;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(251,248,241,.92);backdrop-filter:blur(10px);border-bottom:1px solid #e6dfcf}
+.achiever-back a{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:#fff;color:#1d1b20;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(60,40,20,.08)}
+</style><script>/* back to Achiever when opened from it (qi7) */document.addEventListener('DOMContentLoaded',()=>{if(!/^qi7\./.test(location.hostname))return;const d=document.createElement('div');d.className='achiever-back';d.innerHTML='<a href="/achiever/">← Achiever</a>';document.body.prepend(d)});</script></head><body><main>
 <header><h1>Mesa de edición <span>BeautyCita</span></h1><a href="/voz/">← Cabina de voz</a></header>
 
 <section>

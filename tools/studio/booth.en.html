@@ -3,53 +3,66 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Voice booth (English trial) · BeautyCita</title>
 <style>
-:root{--bg:#1b1418;--panel:#271d23;--fg:#f6eef2;--dim:#b7a3ad;--pink:#ff5fa2;--ok:#5fd38a;--bad:#ff4d4d}
+:root{--bg:#fbf8f1;--panel:#ffffff;--fg:#1d1b20;--dim:#6b6670;--pink:#e5447f;--ok:#1fa463;--bad:#d93636;--line:#e6dfcf}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
 main{max-width:980px;margin:0 auto;padding:20px;display:grid;gap:16px}
 h1{margin:0;font-size:22px}h1 span{color:var(--pink)}
 section{background:var(--panel);border-radius:12px;padding:16px;display:grid;gap:12px}
 label{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
-select,input{width:100%;padding:10px;border-radius:8px;border:1px solid #4a3a43;background:#120d10;color:var(--fg);font-size:16px}
+select,input{width:100%;padding:10px;border-radius:8px;border:1px solid #e6dfcf;background:#f6f2e9;color:var(--fg);font-size:16px}
 .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 button{border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:700;cursor:pointer}
 #rec{background:var(--pink);color:#fff;min-width:200px}#rec.on{background:var(--bad);animation:p 1s infinite}
 @keyframes p{50%{opacity:.7}}
-button.sec{background:#3a2c34;color:var(--fg);font-size:15px;padding:10px 18px}
-#meter{height:22px;background:#120d10;border-radius:6px;overflow:hidden;position:relative}
+button.sec{background:#ece6da;color:var(--fg);font-size:15px;padding:10px 18px}
+#meter{height:22px;background:#f6f2e9;border-radius:6px;overflow:hidden;position:relative}
 #bar{height:100%;width:0;background:var(--ok);transition:width .05s}
 #peak{position:absolute;top:0;bottom:0;width:3px;background:#fff}
-#win{background:#120d10;border:2px solid var(--pink);border-radius:12px;padding:18px;display:grid;gap:12px}
+#win{background:#f6f2e9;border:2px solid var(--pink);border-radius:12px;padding:18px;display:grid;gap:12px}
 #guion{white-space:pre-wrap;font-size:30px;line-height:1.45}
-#nota{color:#f2c94c;font-size:15px;font-style:italic}
+#nota{color:#b77900;font-size:15px;font-style:italic}
 #segt{color:var(--pink);font-size:18px}
-.seg{display:inline-flex;background:#271d23;border-radius:999px;padding:3px}.seg button{background:transparent;color:var(--dim);font-size:14px;padding:7px 16px}.seg button.on{background:var(--pink);color:#fff}
-.grp{padding:8px 0;border-bottom:1px solid #3a2c34}.grp h4{margin:0 0 4px;font-size:14px;color:var(--dim)}.grp h4.cur{color:var(--pink)}
+.seg{display:inline-flex;background:#f3eee2;border-radius:999px;padding:3px}.seg button{background:transparent;color:var(--dim);font-size:14px;padding:7px 16px}.seg button.on{background:var(--pink);color:#fff}
+.grp{padding:8px 0;border-bottom:1px solid #ece6da}.grp h4{margin:0 0 4px;font-size:14px;color:var(--dim)}.grp h4.cur{color:var(--pink)}
 #takes .tk{display:flex;gap:10px;align-items:center;padding:4px 0;flex-wrap:wrap}#takes .tk.win b{color:var(--ok)}
-button.star{background:#3a2c34;color:var(--fg);font-size:13px;padding:6px 12px}button.star.on{background:var(--ok);color:#120d10}
+button.star{background:#ece6da;color:var(--fg);font-size:13px;padding:6px 12px}button.star.on{background:var(--ok);color:#f6f2e9}
 a.edit{color:var(--pink);font-weight:700;text-decoration:none}
-.modes{display:flex;gap:8px}.modes button{flex:1;background:#271d23;color:var(--dim);font-size:16px;padding:12px}.modes button.on{background:var(--pink);color:#fff}
+.modes{display:flex;gap:8px}.modes button{flex:1;background:#f3eee2;color:var(--dim);font-size:16px;padding:12px}.modes button.on{background:var(--pink);color:#fff}
 #ent{display:none}body.ent #ent{display:grid}body.ent #flow,body.ent #takesec,body.ent #tonos{display:none}
-#entbar{height:16px;background:var(--field,#120d10);border-radius:8px;overflow:hidden}#entbar div{height:100%;background:var(--ok);width:0}
-.rondas{display:flex;gap:8px;flex-wrap:wrap}.rondas button{background:#3a2c34;color:var(--fg);font-size:14px;padding:8px 14px}.rondas button.on{background:var(--pink)}
-.ep{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #3a2c34;flex-wrap:wrap}.ep .t{flex:1;min-width:160px}.ep.cur .t{color:var(--pink);font-weight:700}
-.ep .r{font-size:13px;padding:2px 8px;border-radius:999px;background:#3a2c34;color:var(--dim)}.ep .r.ok{background:#173a26;color:var(--ok)}
-#consent{border:2px solid #f2c94c;border-radius:10px;padding:12px;display:grid;gap:8px}#consent.ok{border-color:var(--ok)}
+#entbar{height:16px;background:var(--field,#f6f2e9);border-radius:8px;overflow:hidden}#entbar div{height:100%;background:var(--ok);width:0}
+.rondas{display:flex;gap:8px;flex-wrap:wrap}.rondas button{background:#ece6da;color:var(--fg);font-size:14px;padding:8px 14px}.rondas button.on{background:var(--pink)}
+.ep{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #ece6da;flex-wrap:wrap}.ep .t{flex:1;min-width:160px}.ep.cur .t{color:var(--pink);font-weight:700}
+.ep .r{font-size:13px;padding:2px 8px;border-radius:999px;background:#ece6da;color:var(--dim)}.ep .r.ok{background:#e2f5ea;color:var(--ok)}
+#consent{border:2px solid #b77900;border-radius:10px;padding:12px;display:grid;gap:8px}#consent.ok{border-color:var(--ok)}
 #consent input[type=text]{width:100%}
-#room{background:#120d10;border-radius:10px;padding:12px;display:grid;gap:10px}
+#room{background:#f6f2e9;border-radius:10px;padding:12px;display:grid;gap:10px}
 #chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
-.chip{border-radius:8px;padding:8px 10px;background:#271d23;border-left:5px solid #555}
+.chip{border-radius:8px;padding:8px 10px;background:#f3eee2;border-left:5px solid #cfc6b4}
 .chip b{display:block;font-size:13px;color:var(--dim);font-weight:600}.chip span{font-size:17px;font-weight:700}
-.chip.g{border-color:var(--ok)}.chip.y{border-color:#f2c94c}.chip.r{border-color:var(--bad)}
+.chip.g{border-color:var(--ok)}.chip.y{border-color:#b77900}.chip.r{border-color:var(--bad)}
 #tips div{padding:6px 0 6px 10px;border-left:3px solid var(--pink);margin:4px 0;font-size:16px}
 #tips div b{color:var(--pink)}
 #time{font:600 28px ui-monospace,monospace}
-#mt{background:#120d10;border-radius:10px;padding:14px;display:none;gap:10px}#mt.on{display:grid}
+#mt{background:#f6f2e9;border-radius:10px;padding:14px;display:none;gap:10px}#mt.on{display:grid}
 #mtstep{font-size:22px;font-weight:700}#mtstep .big{color:var(--pink);font:700 30px ui-monospace,monospace}
-#mtv{font-size:24px;font-weight:800;padding:10px 14px;border-radius:8px}#mtv.g{background:#173a26;color:var(--ok)}#mtv.y{background:#3a3217;color:#f2c94c}#mtv.r{background:#3a1717;color:var(--bad)}
+#mtv{font-size:24px;font-weight:800;padding:10px 14px;border-radius:8px}#mtv.g{background:#e2f5ea;color:var(--ok)}#mtv.y{background:#fff1dc;color:#b77900}#mtv.r{background:#fde8e8;color:var(--bad)}
 #mtgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:640px){#mtgrid{grid-template-columns:1fr}}
-#takes div{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #3a2c34;flex-wrap:wrap}
-#takes audio{height:36px}#fout a{color:var(--pink);font-weight:600}#fout div{padding:4px 0}#fout .warn{color:#f2c94c}.dim{color:var(--dim)}#msg{min-height:1.4em}
-</style></head><body class="ent"><main>
+#takes div{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #ece6da;flex-wrap:wrap}
+#takes audio{height:36px}#fout a{color:var(--pink);font-weight:600}#fout div{padding:4px 0}#fout .warn{color:#b77900}.dim{color:var(--dim)}#msg{min-height:1.4em}
+
+/* Achiever look (BC 2026-10-28 polish pass): light, bright, One UI — one family with Achiever */
+body{background:#fbf8f1;color:#1d1b20;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+section,form,.card,.panel{border-radius:24px!important;box-shadow:0 2px 6px rgba(60,40,20,.06),0 10px 26px rgba(60,40,20,.07)}
+label,.lbl{text-transform:none!important;letter-spacing:0!important;font-weight:600}
+input,select,textarea{background:#fff!important;border:2px solid #e6dfcf!important;border-radius:14px!important;color:#1d1b20!important}
+input:focus,select:focus,textarea:focus{outline:0;border-color:#3478f6!important}
+input[type=file]{padding:10px!important}input[type=file]::file-selector-button{border:0;border-radius:999px;padding:9px 16px;margin-right:10px;background:#1d1b20;color:#fff;font-weight:700;cursor:pointer}
+input[type=range]{border:0!important;padding:0!important;accent-color:#3478f6;background:transparent!important}
+button:focus-visible,a:focus-visible{outline:3px solid #3478f6;outline-offset:2px}
+#peak{background:#1d1b20!important}
+.achiever-back{position:relative;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(251,248,241,.92);backdrop-filter:blur(10px);border-bottom:1px solid #e6dfcf}
+.achiever-back a{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:#fff;color:#1d1b20;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(60,40,20,.08)}
+</style><script>/* back to Achiever when opened from it (qi7) */document.addEventListener('DOMContentLoaded',()=>{if(!/^qi7\./.test(location.hostname))return;const d=document.createElement('div');d.className='achiever-back';d.innerHTML='<a href="/achiever/">← Achiever</a>';document.body.prepend(d)});</script></head><body class="ent"><main>
 <h1>Voice booth <span>BeautyCita</span> · English trial</h1>
 <div style="background:#1d2a3a;border-left:4px solid #6aa8ff;border-radius:8px;padding:10px 12px;font-size:15px">This is <b>your English training session</b>, kept apart from Quetzaly's Spanish studio: its own recordings, its own model.</div>
 <section>
@@ -234,7 +247,7 @@ function onBlock(b){
   let pk=0;for(const s of b){const a=Math.abs(s);if(a>pk)pk=a}
   peakHold=Math.max(pk,peakHold*0.97);
   const db=20*Math.log10(Math.max(pk,1e-6)),w=Math.max(0,Math.min(100,(db+60)/60*100));
-  $('bar').style.width=w+'%';$('bar').style.background=db>-1?'var(--bad)':db>-6?'#f2c94c':'var(--ok)';
+  $('bar').style.width=w+'%';$('bar').style.background=db>-1?'var(--bad)':db>-6?'#b77900':'var(--ok)';
   $('peak').style.left=Math.max(0,Math.min(99,(20*Math.log10(Math.max(peakHold,1e-6))+60)/60*100))+'%';
   if(recording){chunks.push(b);const s=Math.floor((performance.now()-t0)/1000);$('time').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 }
@@ -299,7 +312,7 @@ function renderEnt(){
   const c=$('consent'),heard=entTomas.find(t=>t.id==='00-consentimiento');
   if(entConsent){c.className='ok';c.innerHTML=`<div>✓ Authorization by <b>${entConsent.nombre.replace(/</g,'&lt;')}</b>, ${entConsent.aceptado_en.slice(0,16).replace('T',' ')}, recorded aloud and accepted in writing.</div>`}
   else{c.className='';c.innerHTML=`<b>Before you start: authorization</b>
-    <div>1. Record text 1, "Authorization", aloud as written (say your full name and today's date). ${heard?'<span style="color:var(--ok)">✓ Recorded</span>':'<span style="color:#f2c94c">Pending</span>'}</div>
+    <div>1. Record text 1, "Authorization", aloud as written (say your full name and today's date). ${heard?'<span style="color:var(--ok)">✓ Recorded</span>':'<span style="color:#b77900">Pending</span>'}</div>
     <div>2. Type your full name and tick that you accept:</div>
     <input type="text" id="cname" placeholder="Full name" value="">
     <label style="text-transform:none;font-size:15px;color:var(--fg)"><input type="checkbox" id="cok"> I have read and accept the authorization in text 1.</label>
