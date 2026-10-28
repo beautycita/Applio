@@ -189,6 +189,64 @@ def renders(out):
     return sorted(items, key=lambda r: r["id"], reverse=True)
 
 
+def proyectos(out):
+    """The main script plus every project, with how far the recording has got."""
+    def info(folder, p, titulo):
+        scenes = guion.load(folder)
+        tk = guion.takes(folder)
+        picks = guion.elegidas(folder)
+        meta = {}
+        try:
+            meta = json.load(open(os.path.join(folder, "proyecto.json"), encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+        return {"p": p, "titulo": meta.get("titulo") or titulo, "creado": meta.get("creado"), "origen": meta.get("origen"),
+                "escenas": len(scenes), "grabadas": len({s for _, s, _ in tk}), "tomas": len(tk),
+                "elegidas": sum(len(v) for v in picks.values()),
+                "ultima": max((os.path.getmtime(t[0]) for t in tk), default=None)}
+    out_list = [info(out, "", "Guion principal")]
+    base = os.path.join(out, "proyectos")
+    if os.path.isdir(base):
+        for p in sorted(os.listdir(base), reverse=True):
+            if os.path.isfile(os.path.join(base, p, "guion.json")):
+                out_list.append(info(os.path.join(base, p), p, p))
+    return out_list
+
+
+def crear_proyecto(out, raw):
+    """POST /proyectos {p, titulo, origen, escenas: [{id, titulo, casual: {texto, nota}, profesional: {...}}]}.
+    Creates the project folder with its own guion.json; never touches an existing project's takes
+    (an existing project only gets its script replaced). Returns (payload, status)."""
+    try:
+        b = json.loads(raw or b"")
+    except ValueError:
+        return {"error": "inválido"}, 400
+    p = str(b.get("p") or "")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,59}", p):
+        return {"error": "nombre de proyecto inválido"}, 400
+    escenas = []
+    for i, sc in enumerate((b.get("escenas") or [])[:30], 1):
+        sid = re.sub(r"[^\w-]+", "-", str(sc.get("id") or f"{i:02d}")).strip("-")[:40] or f"{i:02d}"
+        row = {"id": sid, "titulo": str(sc.get("titulo") or sid)[:120]}
+        for t in guion.TONOS:
+            v = sc.get(t) or {}
+            row[t] = {"texto": str(v.get("texto") or "")[:2000], "nota": str(v.get("nota") or "")[:600]}
+        if row["casual"]["texto"] or row["profesional"]["texto"]:
+            escenas.append(row)
+    if not escenas:
+        return {"error": "el guion no trae texto para grabar"}, 400
+    d = os.path.join(out, "proyectos", p)
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, "guion.json"), "w", encoding="utf-8") as fh:
+        json.dump(escenas, fh, ensure_ascii=False, indent=1)
+    meta = {"titulo": str(b.get("titulo") or p)[:160], "origen": str(b.get("origen") or "")[:60],
+            "creado": datetime.datetime.now().astimezone().isoformat(timespec="seconds")}
+    with open(os.path.join(d, "proyecto.json"), "w", encoding="utf-8") as fh:
+        json.dump(meta, fh, ensure_ascii=False, indent=1)
+    print(f"project {p}: {len(escenas)} scenes", flush=True)
+    return {"p": p, "escenas": len(escenas)}, 201
+
+
 class Studio(BaseHTTPRequestHandler):
     out = "."
 
@@ -233,6 +291,16 @@ class Studio(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         return re.sub(r"^/voz", "", path).rstrip("/") or "/"
 
+    def _dir(self, q):
+        """The folder a request works in: a project (?p=<slug>, <out>/proyectos/<slug>/, made by Achiever —
+        its own script, takes, picks and mixes) or, without p, the studio's main folder as always."""
+        p = q.get("p", "")
+        if re.fullmatch(r"[a-z0-9][a-z0-9-]{0,59}", p):
+            d = os.path.join(self.out, "proyectos", p)
+            if os.path.isfile(os.path.join(d, "guion.json")):
+                return d
+        return self.out
+
     def _query(self):
         q = self.path.split("?", 1)[1] if "?" in self.path else ""
         return {k: v[0] for k, v in parse_qs(q).items()}
@@ -247,6 +315,8 @@ class Studio(BaseHTTPRequestHandler):
         route, q = self._route(), self._query()
         if route == "/":
             return self._page("booth.html")
+        if route == "/proyecto.js":
+            return self._send(200, open(os.path.join(HERE, "proyecto.js"), "rb").read(), "text/javascript; charset=utf-8")
         if route == "/entrenar":
             return self._page("trainer.html")
         if route == "/entrenamiento/estado":
@@ -267,11 +337,14 @@ class Studio(BaseHTTPRequestHandler):
         if route == "/editar":
             return self._send(200, open(os.path.join(HERE, "editor.html"), "rb").read(), "text/html; charset=utf-8")
         if route == "/guion":
-            return self._json(guion.load(self.out))
+            return self._json(guion.load(self._dir(q)))
+        if route == "/proyectos":
+            return self._json(proyectos(self.out))
         if route == "/takes":
-            picks = guion.elegidas(self.out)
+            folder = self._dir(q)
+            picks = guion.elegidas(folder)
             items = []
-            for path, stem, tono in reversed(guion.takes(self.out)):
+            for path, stem, tono in reversed(guion.takes(folder)):
                 f = os.path.basename(path)
                 items.append({"file": f, "id": stem, "tono": tono,
                               "seconds": round((os.path.getsize(path) - 44) / (48000 * 3), 1),
@@ -280,7 +353,7 @@ class Studio(BaseHTTPRequestHandler):
         if route == "/estado":
             state = dict(FLOW)
             if not state["running"] and not state["result"] and not state["error"]:
-                r = results(self.out)
+                r = results(self._dir(q))
                 state["result"] = next((x for x in r if x["tono"] == q.get("tono", "casual")), None)
             return self._json(state)
         if route == "/entreno":
@@ -292,17 +365,17 @@ class Studio(BaseHTTPRequestHandler):
                 return self._file(p)
             return self._send(404, '{"error":"not found"}')
         if route == "/fuentes":
-            return self._json(results(self.out))
+            return self._json(results(self._dir(q)))
         if route == "/modelos":
             from pipeline import voices  # stdlib-only import path
             return self._json({"voces": voices(), "pulidos": PULIDOS})
         if route == "/render/estado":
             return self._json(EDIT)
         if route == "/renders":
-            return self._json(renders(self.out))
+            return self._json(renders(self._dir(q)))
         m = re.fullmatch(rf"/final/({CARPETA})/(?:(ediciones/{RID}/(?:escenas/)?))?([\w.-]+)", route)
         if m:
-            p = os.path.join(self.out, "final", m[1], m[2] or "", m[3])
+            p = os.path.join(self._dir(q), "final", m[1], m[2] or "", m[3])
             if os.path.isfile(p):
                 return self._file(p, download="descargar" in q)
         m = re.fullmatch(r"/prueba/(\d{8}-\d{6}(?:-lectura|-pulida)?\.wav)", route)
@@ -312,7 +385,7 @@ class Studio(BaseHTTPRequestHandler):
                 return self._file(p)
         if route.startswith("/take/"):
             name = os.path.basename(unquote(route[len("/take/"):]))
-            p = os.path.join(self.out, name)
+            p = os.path.join(self._dir(q), name)
             if guion.parse_take(name) and os.path.isfile(p):
                 return self._file(p)
         self._send(404, '{"error":"not found"}')
@@ -341,7 +414,7 @@ class Studio(BaseHTTPRequestHandler):
                 if busy():
                     return self._json({"error": "ya hay un proceso corriendo"}, 409)
                 FLOW["running"] = True
-            cmd = [AUTOFLOW_PY, os.path.join(HERE, "pipeline.py"), self.out, "--voz", voice, "--tono", tono]
+            cmd = [AUTOFLOW_PY, os.path.join(HERE, "pipeline.py"), self._dir(q), "--voz", voice, "--tono", tono]
             threading.Thread(target=run_job, args=(FLOW, cmd), daemon=True).start()
             return self._json({"started": True}, 202)
         if route == "/render":
@@ -359,7 +432,7 @@ class Studio(BaseHTTPRequestHandler):
                 if busy():
                     return self._json({"error": "ya hay un proceso corriendo"}, 409)
                 EDIT["running"] = True
-            cmd = [AUTOFLOW_PY, os.path.join(HERE, "render.py"), self.out, carpeta, json.dumps(params)]
+            cmd = [AUTOFLOW_PY, os.path.join(HERE, "render.py"), self._dir(q), carpeta, json.dumps(params)]
             threading.Thread(target=run_job, args=(EDIT, cmd), daemon=True).start()
             return self._json({"started": True}, 202)
         if route == "/entrenamiento/iniciar":
@@ -470,10 +543,12 @@ class Studio(BaseHTTPRequestHandler):
             if tono not in guion.TONOS or not re.fullmatch(r"[\w-]{1,40}", scene):
                 return self._json({"error": "inválido"}, 400)
             if take is not None and (guion.parse_take(take) != (scene, tono)
-                                     or not os.path.isfile(os.path.join(self.out, take))):
+                                     or not os.path.isfile(os.path.join(self._dir(q), take))):
                 return self._json({"error": "esa toma no es de esta escena y tono"}, 400)
-            guion.elegir(self.out, tono, scene, take)
+            guion.elegir(self._dir(q), tono, scene, take)
             return self._json({"ok": True})
+        if route == "/proyectos":
+            return self._json(*crear_proyecto(self.out, self._body()))
         if route != "/save":
             return self._send(404, '{"error":"not found"}')
         length = int(self.headers.get("Content-Length", 0))
@@ -487,11 +562,11 @@ class Studio(BaseHTTPRequestHandler):
         if tono not in guion.TONOS:
             tono = "casual"
         base = f"{stem}-{tono}-{datetime.datetime.now().strftime('%H%M%S')}"
-        name, n = f"{base}.wav", 1
-        while os.path.exists(os.path.join(self.out, name)):  # same second, or the same time another day
+        name, n, folder = f"{base}.wav", 1, self._dir(q)
+        while os.path.exists(os.path.join(folder, name)):  # same second, or the same time another day
             n += 1
             name = f"{base}-{n}.wav"
-        with open(os.path.join(self.out, name), "wb") as fh:
+        with open(os.path.join(folder, name), "wb") as fh:
             fh.write(data)
         print(f"saved {name} ({length // 1024} KB)", flush=True)
         self._json({"file": name})
