@@ -3,65 +3,76 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Voice booth (English trial) · BeautyCita</title>
 <style>
-:root{--bg:#fbf8f1;--panel:#ffffff;--fg:#1d1b20;--dim:#6b6670;--pink:#e5447f;--ok:#1fa463;--bad:#d93636;--line:#e6dfcf}
+:root{--bg:#f7f6f9;--panel:#ffffff;--fg:#16141a;--dim:#6a6570;--pink:#e5447f;--ok:#1fa463;--bad:#d93636;--line:#e4e1e8}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
 main{max-width:980px;margin:0 auto;padding:20px;display:grid;gap:16px}
 h1{margin:0;font-size:22px}h1 span{color:var(--pink)}
 section{background:var(--panel);border-radius:12px;padding:16px;display:grid;gap:12px}
 label{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
-select,input{width:100%;padding:10px;border-radius:8px;border:1px solid #e6dfcf;background:#f6f2e9;color:var(--fg);font-size:16px}
+select,input{width:100%;padding:10px;border-radius:8px;border:1px solid #e4e1e8;background:#f4f3f7;color:var(--fg);font-size:16px}
 .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 button{border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:700;cursor:pointer}
 #rec{background:var(--pink);color:#fff;min-width:200px}#rec.on{background:var(--bad);animation:p 1s infinite}
 @keyframes p{50%{opacity:.7}}
-button.sec{background:#ece6da;color:var(--fg);font-size:15px;padding:10px 18px}
-#meter{height:22px;background:#f6f2e9;border-radius:6px;overflow:hidden;position:relative}
+button.sec{background:#e9e7ee;color:var(--fg);font-size:15px;padding:10px 18px}
+#meter{height:22px;background:#f4f3f7;border-radius:6px;overflow:hidden;position:relative}
 #bar{height:100%;width:0;background:var(--ok);transition:width .05s}
 #peak{position:absolute;top:0;bottom:0;width:3px;background:#fff}
-#win{background:#f6f2e9;border:2px solid var(--pink);border-radius:12px;padding:18px;display:grid;gap:12px}
+#win{background:#f4f3f7;border:2px solid var(--pink);border-radius:12px;padding:18px;display:grid;gap:12px}
 #guion{white-space:pre-wrap;font-size:30px;line-height:1.45}
 #nota{color:#b77900;font-size:15px;font-style:italic}
 #segt{color:var(--pink);font-size:18px}
-.seg{display:inline-flex;background:#f3eee2;border-radius:999px;padding:3px}.seg button{background:transparent;color:var(--dim);font-size:14px;padding:7px 16px}.seg button.on{background:var(--pink);color:#fff}
-.grp{padding:8px 0;border-bottom:1px solid #ece6da}.grp h4{margin:0 0 4px;font-size:14px;color:var(--dim)}.grp h4.cur{color:var(--pink)}
+.seg{display:inline-flex;background:#efedf3;border-radius:999px;padding:3px}.seg button{background:transparent;color:var(--dim);font-size:14px;padding:7px 16px}.seg button.on{background:var(--pink);color:#fff}
+.grp{padding:8px 0;border-bottom:1px solid #e9e7ee}.grp h4{margin:0 0 4px;font-size:14px;color:var(--dim)}.grp h4.cur{color:var(--pink)}
 #takes .tk{display:flex;gap:10px;align-items:center;padding:4px 0;flex-wrap:wrap}#takes .tk.win b{color:var(--ok)}
-button.star{background:#ece6da;color:var(--fg);font-size:13px;padding:6px 12px}button.star.on{background:var(--ok);color:#f6f2e9}
+button.star{background:#e9e7ee;color:var(--fg);font-size:13px;padding:6px 12px}button.star.on{background:var(--ok);color:#f4f3f7}
 a.edit{color:var(--pink);font-weight:700;text-decoration:none}
-.modes{display:flex;gap:8px}.modes button{flex:1;background:#f3eee2;color:var(--dim);font-size:16px;padding:12px}.modes button.on{background:var(--pink);color:#fff}
+.modes{display:flex;gap:8px}.modes button{flex:1;background:#efedf3;color:var(--dim);font-size:16px;padding:12px}.modes button.on{background:var(--pink);color:#fff}
 #ent{display:none}body.ent #ent{display:grid}body.ent #flow,body.ent #takesec,body.ent #tonos{display:none}
-#entbar{height:16px;background:var(--field,#f6f2e9);border-radius:8px;overflow:hidden}#entbar div{height:100%;background:var(--ok);width:0}
-.rondas{display:flex;gap:8px;flex-wrap:wrap}.rondas button{background:#ece6da;color:var(--fg);font-size:14px;padding:8px 14px}.rondas button.on{background:var(--pink)}
-.ep{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #ece6da;flex-wrap:wrap}.ep .t{flex:1;min-width:160px}.ep.cur .t{color:var(--pink);font-weight:700}
-.ep .r{font-size:13px;padding:2px 8px;border-radius:999px;background:#ece6da;color:var(--dim)}.ep .r.ok{background:#e2f5ea;color:var(--ok)}
+#entbar{height:16px;background:var(--field,#f4f3f7);border-radius:8px;overflow:hidden}#entbar div{height:100%;background:var(--ok);width:0}
+.rondas{display:flex;gap:8px;flex-wrap:wrap}.rondas button{background:#e9e7ee;color:var(--fg);font-size:14px;padding:8px 14px}.rondas button.on{background:var(--pink)}
+.ep{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #e9e7ee;flex-wrap:wrap}.ep .t{flex:1;min-width:160px}.ep.cur .t{color:var(--pink);font-weight:700}
+.ep .r{font-size:13px;padding:2px 8px;border-radius:999px;background:#e9e7ee;color:var(--dim)}.ep .r.ok{background:#e2f5ea;color:var(--ok)}
 #consent{border:2px solid #b77900;border-radius:10px;padding:12px;display:grid;gap:8px}#consent.ok{border-color:var(--ok)}
 #consent input[type=text]{width:100%}
-#room{background:#f6f2e9;border-radius:10px;padding:12px;display:grid;gap:10px}
+#room{background:#f4f3f7;border-radius:10px;padding:12px;display:grid;gap:10px}
 #chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
-.chip{border-radius:8px;padding:8px 10px;background:#f3eee2;border-left:5px solid #cfc6b4}
+.chip{border-radius:8px;padding:8px 10px;background:#efedf3;border-left:5px solid #cfc6b4}
 .chip b{display:block;font-size:13px;color:var(--dim);font-weight:600}.chip span{font-size:17px;font-weight:700}
 .chip.g{border-color:var(--ok)}.chip.y{border-color:#b77900}.chip.r{border-color:var(--bad)}
 #tips div{padding:6px 0 6px 10px;border-left:3px solid var(--pink);margin:4px 0;font-size:16px}
 #tips div b{color:var(--pink)}
 #time{font:600 28px ui-monospace,monospace}
-#mt{background:#f6f2e9;border-radius:10px;padding:14px;display:none;gap:10px}#mt.on{display:grid}
+#mt{background:#f4f3f7;border-radius:10px;padding:14px;display:none;gap:10px}#mt.on{display:grid}
 #mtstep{font-size:22px;font-weight:700}#mtstep .big{color:var(--pink);font:700 30px ui-monospace,monospace}
 #mtv{font-size:24px;font-weight:800;padding:10px 14px;border-radius:8px}#mtv.g{background:#e2f5ea;color:var(--ok)}#mtv.y{background:#fff1dc;color:#b77900}#mtv.r{background:#fde8e8;color:var(--bad)}
 #mtgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:640px){#mtgrid{grid-template-columns:1fr}}
-#takes div{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #ece6da;flex-wrap:wrap}
+#takes div{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #e9e7ee;flex-wrap:wrap}
 #takes audio{height:36px}#fout a{color:var(--pink);font-weight:600}#fout div{padding:4px 0}#fout .warn{color:#b77900}.dim{color:var(--dim)}#msg{min-height:1.4em}
 
-/* Achiever look (BC 2026-10-28 polish pass): light, bright, One UI — one family with Achiever */
-body{background:#fbf8f1;color:#1d1b20;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-section,form,.card,.panel{border-radius:24px!important;box-shadow:0 2px 6px rgba(60,40,20,.06),0 10px 26px rgba(60,40,20,.07)}
+/* The studios' one theme (BC 2026-10-31: the voice studio shares the video studio's design). Colour = what you are
+   doing, the same in every studio: violeta pensar (the script you read), azul ajustar/grabar, verde-azul escuchar
+   (takes, the editor), rosa = only what spends money (nothing here does). Sharp: 6 px corners, 1 px lines, no shadows. */
+:root{--pink:#1d5fd6;--pinkb:#e9f0fd;--ok:#0b8077;--bad:#c62828;--line:#e4e1e8}
+body{background:#f7f6f9;color:#16141a;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+h1 span{background:linear-gradient(90deg,#BE185D,#7C3AED 55%,#4F46E5);-webkit-background-clip:text;background-clip:text;color:transparent}
+section,form,.card,.panel{border-radius:6px!important;box-shadow:none!important;border:1px solid #e4e1e8}
+button{border-radius:6px!important}
+button.sec,button.star,.rondas button{background:#fff;border:1px solid #e4e1e8}
+button.star.on{background:#0b8077;color:#fff;border-color:#0b8077}
+.seg,.modes{border-radius:6px}
 label,.lbl{text-transform:none!important;letter-spacing:0!important;font-weight:600}
-input,select,textarea{background:#fff!important;border:2px solid #e6dfcf!important;border-radius:14px!important;color:#1d1b20!important}
-input:focus,select:focus,textarea:focus{outline:0;border-color:#3478f6!important}
-input[type=file]{padding:10px!important}input[type=file]::file-selector-button{border:0;border-radius:999px;padding:9px 16px;margin-right:10px;background:#1d1b20;color:#fff;font-weight:700;cursor:pointer}
-input[type=range]{border:0!important;padding:0!important;accent-color:#3478f6;background:transparent!important}
-button:focus-visible,a:focus-visible{outline:3px solid #3478f6;outline-offset:2px}
-#peak{background:#1d1b20!important}
-.achiever-back{position:relative;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(251,248,241,.92);backdrop-filter:blur(10px);border-bottom:1px solid #e6dfcf}
-.achiever-back a{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:#fff;color:#1d1b20;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(60,40,20,.08)}
+input,select,textarea{background:#fff!important;border:1px solid #e4e1e8!important;border-radius:6px!important;color:#16141a!important}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--pink)!important;box-shadow:0 0 0 3px var(--pinkb)}
+input[type=file]{padding:8px!important}input[type=file]::file-selector-button{border:1px solid #e4e1e8;border-radius:6px;padding:7px 12px;margin-right:10px;background:#fff;color:#16141a;font-weight:600;cursor:pointer}
+input[type=range]{border:0!important;padding:0!important;accent-color:var(--pink);background:transparent!important;box-shadow:none!important}
+button:focus-visible,a:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+#peak{background:#16141a!important}
+#win{background:#fff;border:1px solid #e4e1e8;border-top:4px solid #6d28d9;border-radius:6px}
+#segt{color:#6d28d9}
+.chip{border-radius:6px}
+.achiever-back{position:relative;z-index:40;display:flex;align-items:center;padding:10px 16px;background:#fff;border-bottom:1px solid #e4e1e8}
+.achiever-back a{padding:7px 14px;border-radius:6px;border:1px solid #e4e1e8;background:#fff;color:#16141a;font-weight:700;text-decoration:none}
 </style><script>/* back to Achiever when opened from it (qi7) */document.addEventListener('DOMContentLoaded',()=>{if(!/^qi7\./.test(location.hostname))return;const d=document.createElement('div');d.className='achiever-back';d.innerHTML='<a href="/achiever/">← Achiever</a>';document.body.prepend(d)});</script></head><body class="ent"><main>
 <h1>Voice booth <span>BeautyCita</span> · English trial</h1>
 <div style="background:#1d2a3a;border-left:4px solid #6aa8ff;border-radius:8px;padding:10px 12px;font-size:15px">This is <b>your English training session</b>, kept apart from Quetzaly's Spanish studio: its own recordings, its own model.</div>
