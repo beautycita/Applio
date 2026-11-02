@@ -101,6 +101,47 @@ def ent_state(out):
             "minutos": round(sum(latest.values()) / 60, 1), "meta_min": ENT_META_MIN}
 
 
+def start_training(out, params):
+    """Launch train.py as the one-at-a-time unit. None = started, "busy", or the error text."""
+    with LOCK:
+        if busy():
+            return "busy"
+        subprocess.run(["systemctl", "--user", "reset-failed", TRAIN_UNIT], capture_output=True)
+        r = subprocess.run(["systemd-run", "--user", "--unit", TRAIN_UNIT, "--collect",
+                            "-p", f"WorkingDirectory={APPLIO}", "-p", "KillSignal=SIGTERM", "-p", "TimeoutStopSec=900",
+                            AUTOFLOW_PY, os.path.join(HERE, "train.py"), out, json.dumps(params)],
+                           capture_output=True, text=True)
+    if r.returncode != 0:
+        return r.stderr[-200:] or "systemd-run failed"
+    print(f"training started: {params}", flush=True)
+    return None
+
+
+AUTO_MODEL = "quetzaly-v1"
+
+
+def auto_train(out):
+    """BC 2026-11-02: "have q finish the voice training … so i dont have to keep watching this screen".
+    The Spanish booth starts the cloud run by itself (HF Jobs L40S, BC's choice 10-26, ~US$2) the first time
+    her recordings reach the goal: consent given, nothing else running, no model of that name yet. Once only:
+    the marker stays, so a failed run is looked at, not relaunched in a loop."""
+    if lang(out) != "es":
+        return
+    marker = os.path.join(ent_dir(out), "auto-entrenamiento.json")
+    st = ent_state(out)
+    if (os.path.exists(marker) or not st["consentimiento"] or st["minutos"] < ENT_META_MIN
+            or os.path.isdir(os.path.join(APPLIO, "logs", AUTO_MODEL + "-contentvec"))):
+        return
+    params = {"nombre": AUTO_MODEL, "codificador": "contentvec", "epocas": 300, "cada": 25, "lote": 6,
+              "donde": "nube", "borrar_nube": True}
+    err = start_training(out, params)
+    if err == "busy":
+        return  # the next saved take tries again
+    with open(marker, "w", encoding="utf-8") as fh:
+        json.dump({"iniciado": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+                   "minutos": st["minutos"], "params": params, "error": err}, fh, ensure_ascii=False)
+
+
 ALLOWED_ORIGINS = {"https://bc-dev.tail897a37.ts.net", "https://bc-dev.tail897a37.ts.net:8443", "http://127.0.0.1:8765", "http://127.0.0.1:8766"}
 LOCK = threading.Lock()
 FLOW = {"running": False, "msg": "", "result": None, "error": None}
@@ -461,18 +502,12 @@ class Studio(BaseHTTPRequestHandler):
                       "cada": int(b.get("cada", 25)), "lote": int(b.get("lote", 6)),
                       "donde": "nube" if b.get("donde") == "nube" else "local",
                       "borrar_nube": bool(b.get("borrar_nube", True))}
-            with LOCK:
-                if busy():
-                    return self._json({"error": self._t("hay otro proceso corriendo (entrenamiento, render o auto-flow)",
-                                                        "another job is running (training, render or auto-flow)")}, 409)
-                subprocess.run(["systemctl", "--user", "reset-failed", TRAIN_UNIT], capture_output=True)
-                r = subprocess.run(["systemd-run", "--user", "--unit", TRAIN_UNIT, "--collect",
-                                    "-p", f"WorkingDirectory={APPLIO}", "-p", "KillSignal=SIGTERM", "-p", "TimeoutStopSec=900",
-                                    AUTOFLOW_PY, os.path.join(HERE, "train.py"), self.out, json.dumps(params)],
-                                   capture_output=True, text=True)
-            if r.returncode != 0:
-                return self._json({"error": self._t("no se pudo iniciar: ", "could not start: ") + r.stderr[-200:]}, 500)
-            print(f"training started: {params}", flush=True)
+            r = start_training(self.out, params)
+            if r == "busy":
+                return self._json({"error": self._t("hay otro proceso corriendo (entrenamiento, render o auto-flow)",
+                                                    "another job is running (training, render or auto-flow)")}, 409)
+            if r:
+                return self._json({"error": self._t("no se pudo iniciar: ", "could not start: ") + r}, 500)
             return self._json({"started": True, **params}, 202)
         if route == "/entrenamiento/cancelar":
             subprocess.run(["systemctl", "--user", "stop", TRAIN_UNIT], capture_output=True)
@@ -518,6 +553,7 @@ class Studio(BaseHTTPRequestHandler):
             with open(os.path.join(ent_dir(self.out), name), "wb") as fh:
                 fh.write(data)
             print(f"saved training take {name} ({len(data) // 1024} KB)", flush=True)
+            threading.Thread(target=auto_train, args=(self.out,), daemon=True).start()
             return self._json({"file": name})
         if route == "/prueba":
             data = self._body(limit=40 * 1024 * 1024)
