@@ -320,10 +320,21 @@ $('rec').onclick=async()=>{
   if(mode==='ent')saveEnt(wav(chunks,ctx.sampleRate),entSegs[entCur].id,ronda);
   else saveTake(wav(chunks,ctx.sampleRate),$('name').value||'toma',tono);
 };
+// A save that fails is retried on its own (5 tries over ~30 s) with the take kept in memory; the
+// button only appears if all fail. 11-01: uploads through qi7 and the bridge drop now and then.
+async function postTake(url,blob){let last;
+  for(let i=0;i<5;i++){
+    if(i)await new Promise(r=>setTimeout(r,2000*2**(i-1)));
+    let r,j;
+    try{r=await fetch(url,{method:'POST',body:blob});j=await r.json().catch(()=>({}))}
+    catch(e){last=e;continue}                       // network: try again
+    if(r.ok)return j;
+    last=new Error(j.error||r.status);
+    if(r.status<500&&!/incomplet/.test(last.message))throw last}  // a real refusal: no retry
+  throw last}
 async function saveTake(blob,name,tn){
   msg('Guardando…');
-  try{const r=await fetch('/voz/save?name='+encodeURIComponent(name)+'&tono='+tn,{method:'POST',body:blob});
-    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);msg('Guardada: '+j.file);loadTakes()}
+  try{const j=await postTake('/voz/save?name='+encodeURIComponent(name)+'&tono='+tn,blob);msg('Guardada: '+j.file);loadTakes()}
   catch(e){
     // keep the take in memory: one click retries it, nothing has to be re-read
     $('msg').innerHTML='';const b=document.createElement('button');b.className='sec';b.textContent='↻ Reintentar guardar';
@@ -331,8 +342,7 @@ async function saveTake(blob,name,tn){
 }
 async function saveEnt(blob,id,rn){
   msg('Guardando…');
-  try{const r=await fetch('/voz/entreno/save?id='+encodeURIComponent(id)+'&ronda='+rn,{method:'POST',body:blob});
-    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);msg('Guardada: '+j.file);await loadEnt();
+  try{const j=await postTake('/voz/entreno/save?id='+encodeURIComponent(id)+'&ronda='+rn,blob);msg('Guardada: '+j.file);await loadEnt();
     if(id!=='00-consentimiento'&&entCur<entSegs.length-1){entCur++;showSeg()}}
   catch(e){$('msg').innerHTML='';const b=document.createElement('button');b.className='sec';b.textContent='↻ Reintentar guardar';
     b.onclick=()=>saveEnt(blob,id,rn);$('msg').append('NO se guardó ('+e.message+'). ',b)}

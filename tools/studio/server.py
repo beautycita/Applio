@@ -309,7 +309,14 @@ class Studio(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         if not 0 < length <= limit:
             return None
-        return self.rfile.read(length)
+        return self._read_exact(length)
+
+    def _read_exact(self, length):
+        """The whole body or None. A connection that drops mid-upload (Q's takes come through qi7 and the
+        Achiever bridge) used to leave a truncated take saved as if it were whole (11-01: round 2 takes cut
+        at exactly 1 and 2 MiB, and the page said 'Guardada')."""
+        data = self.rfile.read(length)
+        return data if len(data) == length else None
 
     def do_GET(self):
         route, q = self._route(), self._query()
@@ -501,8 +508,8 @@ class Studio(BaseHTTPRequestHandler):
                 return self._json({"error": self._t("falta la autorización: graba el texto 00 y acepta por escrito",
                                                     "authorization missing: record text 1 and accept it in writing")}, 403)
             data = self._body(limit=500 * 1024 * 1024)
-            if not data or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
-                return self._json({"error": "not a wav"}, 400)
+            if not wav_whole(data):
+                return self._json({"error": self._t("la toma llegó incompleta", "the take arrived incomplete")}, 400)
             base = f"ent-{scene}-r{ronda}-{datetime.datetime.now().strftime('%H%M%S')}"
             name, n = f"{base}.wav", 1
             while os.path.exists(os.path.join(ent_dir(self.out), name)):
@@ -554,9 +561,9 @@ class Studio(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         if not 44 < length < 500 * 1024 * 1024:
             return self._json({"error": "empty take"}, 400)
-        data = self.rfile.read(length)
-        if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
-            return self._json({"error": "not a wav"}, 400)
+        data = self._read_exact(length)
+        if not wav_whole(data):
+            return self._json({"error": "la toma llegó incompleta"}, 400)
         stem = re.sub(r"[^\w-]+", "-", q.get("name", "toma")).strip("-")[:40] or "toma"
         tono = q.get("tono", "casual")
         if tono not in guion.TONOS:
@@ -570,6 +577,12 @@ class Studio(BaseHTTPRequestHandler):
             fh.write(data)
         print(f"saved {name} ({length // 1024} KB)", flush=True)
         self._json({"file": name})
+
+
+def wav_whole(data):
+    """RIFF header says how long the file is; a take shorter than its own header is cut off."""
+    return (data is not None and len(data) > 44 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"
+            and int.from_bytes(data[4:8], "little") + 8 == len(data))
 
 
 def main():
